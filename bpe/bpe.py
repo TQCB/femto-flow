@@ -70,6 +70,7 @@ class BytePairTokenizer:
 
         for merge_pair, merged_token in merge_dict.items():
           i = 0
+# Todo I can speed this up by a lot! need to check sets of tokens against merge pairs so we can do depth first merging!
           while i < len(document) - 1:
             if tuple(document[i:i + len(merge_pair)]) == merge_pair:
               document = document[:i] + [merged_token] + document[i + len(merge_pair):]
