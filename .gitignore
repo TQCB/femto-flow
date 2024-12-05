@@ -1,0 +1,9 @@
+/data
+
+main.ipynb
+main.py
+
+__pycache__
+/nn/__pycache__
+/bpe/__pycache__
+/bpe/tokenizer_test.ipynb
