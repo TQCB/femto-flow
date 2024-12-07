@@ -22,7 +22,7 @@ class Network:
         for sample in range(n):
             output = input_data[sample]
             for layer in self.layers:
-                output = layer.forward_propagation(output)
+                output = layer.forward(output)
             result.append(output)
         
         return result
@@ -46,7 +46,7 @@ class Network:
                 
                 # Get output of all layers
                 for layer in self.layers:
-                    output = layer.forward_propagation(output)
+                    output = layer.forward(output)
                     
                 # Calculate metric, loss and gradient for each sample
                 metric += self.metric(y_train[sample], output)
@@ -55,7 +55,7 @@ class Network:
                 
                 # Backpropagate gradient
                 for layer in self.layers[::-1]:
-                    d_error = layer.backward_propagation(d_error, learning_rate)
+                    d_error = layer.backward(d_error, learning_rate)
                                
             error /= n
             metric /= n
