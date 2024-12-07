@@ -1,5 +1,22 @@
 import numpy as np
 
+################################################################################
+
+# Module containing definitions of different layers for our neural networks.
+# Layers at a minimum define forward and backward pass methods. These 
+# respectively apply the layer's calculations to an input, passing the result to
+# the next layer and propagating the error to the previous layer.
+
+# TODO
+#  |- HIGH
+#      |- Embedding
+#      |- Attention
+#  |- NORMAL
+#      |- Recurrent
+#      |- Convolutional 
+
+################################################################################
+
 class Layer:
     def __init__(self, input_dim, output_dim):
         self.weights = np.random.uniform(-1, 1, size=(input_dim, output_dim))
@@ -22,19 +39,18 @@ class Layer:
         return input_error
     
 class ActivationLayer(Layer):
-    def __init__(self, activation, d_activation):
-        self.activation = activation
-        self.d_activation = d_activation
+    def __init__(self, activation):
+        self.activation = activation()
 
     # compute h(X) = Y
     def forward_propagation(self, input):
         self.input = input
-        self.output = self.activation(self.input)
+        self.output = self.activation.forward(self.input)
         return self.output
     
     # compute dE/dX for dE/dY 
     def backward_propagation(self, output_error, learning_rate):
-        return self.d_activation(self.input) * output_error
+        return self.activation.backward(self.input) * output_error
     
 class FCLayer(Layer):
     def __init__(self, input_dim, output_dim):
@@ -53,3 +69,9 @@ class FCLayer(Layer):
         self.weights -= learning_rate * weights_error
         self.bias -= learning_rate * output_error
         return input_error
+    
+class MultiHeadAttention(Layer):
+    def __init__(self, n_heads, n_dim):
+        self.q_weights =
+        self.k_weights
+        self.v_weights
