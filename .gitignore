@@ -1,7 +1,7 @@
 /data
 
-main.ipynb
-main.py
+train_iris.py
+train_text.py
 
 __pycache__
 /nn/__pycache__
