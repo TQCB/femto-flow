@@ -4,3 +4,5 @@ from . import losses
 from . import metrics
 from . import network
 from . import optimizers
+
+from . import text
