@@ -96,12 +96,13 @@ class MultiHeadAttention(Layer):
   def split_heads(self, x):
     """Utility function to split global Q, K, V into (n_heads, seq_len, head_dim)"""
     seq_len = x.shape[0]
-    return x.reshape(seq_len, self.n_heads, self.head_dim)
+    return x.reshape(self.n_heads, seq_len, self.head_dim)
     
   def combine_heads(self, x):
     """Utility function to combine head Q, K, V into (seq_len, n_dim)"""
-    seq_len = x.shape[0]
-    return x.transpose(2, 1, 3).reshape(seq_len, self.n_dim)
+    seq_len = x.shape[1]
+    print(f"Combine seqlen: {seq_len}")
+    return x.reshape(seq_len, self.n_dim)
   
   def forward(self, input):
     """
@@ -123,11 +124,13 @@ class MultiHeadAttention(Layer):
     self.input = input
     
     # Compute Q, K, V
+    # shape: (seq_len, output_dim)
     Q = np.dot(input, self.wq)
     K = np.dot(input, self.wk)
     V = np.dot(input, self.wv)
     
     # Split Q, K, V into heads
+    # shape: (n_heads, seq_len, head_dim)
     Q = self.split_heads(Q)
     K = self.split_heads(K)
     V = self.split_heads(V)
@@ -135,22 +138,25 @@ class MultiHeadAttention(Layer):
     # Compute Luong attention (scaled dot product)
     # Divide by sqrt(d) for more stable gradient flow
     # Normalizes the magnitude of score with respect to d
-    # shape(n_heads, seq_len, seq_len)
+    # shape: (n_heads, seq_len, seq_len)
     # score of each Q to each K, each element of sequence to every other
-    scores = np.matmul(Q, K.transpose(1, 3, 2)) / np.sqrt(self.head_dim)
+    scores = np.matmul(Q, K.transpose(0, 2, 1)) / np.sqrt(self.head_dim)
     
     # Softmax scores
+    # shape: (n_heads, seq_len, seq_len)
     attention_weights = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
     attention_weights /= np.sum(attention_weights, axis=-1, keepdims=True)
     
     # Get weighted sum of V by attention_weights
+    # shape: (n_heads, seq_len, head_dims)
     attention_output = np.matmul(attention_weights, V)
     
     # Combine head outputs
-    # shape(seq_len, n_dim)
+    # shape: (seq_len, n_dim)
     concat_output = self.combine_heads(attention_output)
     
     # Final output projection
+    # shape: (seq_len, n_dim)
     self.output = np.dot(concat_output, self.wo)
     return self.output
   
@@ -207,4 +213,4 @@ class MultiHeadAttention(Layer):
     self.wo -= learning_rate * wo_error
     
     input_error = np.dot(value_error, self.wq.T)
-    return input_error
+    return input_error 
