@@ -32,9 +32,9 @@ class Layer:
   def backward(self, output_error, learning_rate):
     input_error = np.dot(output_error, self.weights.T)
     weights_error = np.dot(self.input.T, output_error)
-        
+    
     self.weights -= learning_rate * weights_error
-    self.bias -= learning_rate * output_error
+    self.bias -= learning_rate * bias_error
         
     return input_error
     
@@ -66,8 +66,11 @@ class FCLayer(Layer):
     input_error = np.dot(output_error, self.weights.T)
     weights_error = np.dot(self.input.T, output_error)
         
+    # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
+    bias_error = np.sum(output_error, axis=0, keepdims=True)
+        
     self.weights -= learning_rate * weights_error
-    self.bias -= learning_rate * output_error
+    self.bias -= learning_rate * bias_error
     return input_error
     
 class MultiHeadAttention(Layer):
@@ -101,7 +104,6 @@ class MultiHeadAttention(Layer):
   def combine_heads(self, x):
     """Utility function to combine head Q, K, V into (seq_len, n_dim)"""
     seq_len = x.shape[1]
-    print(f"Combine seqlen: {seq_len}")
     return x.reshape(seq_len, self.n_dim)
   
   def forward(self, input):
@@ -125,31 +127,31 @@ class MultiHeadAttention(Layer):
     
     # Compute Q, K, V
     # shape: (seq_len, output_dim)
-    Q = np.dot(input, self.wq)
-    K = np.dot(input, self.wk)
-    V = np.dot(input, self.wv)
+    self.Q = np.dot(self.input, self.wq)
+    self.K = np.dot(self.input, self.wk)
+    self.V = np.dot(self.input, self.wv)
     
     # Split Q, K, V into heads
     # shape: (n_heads, seq_len, head_dim)
-    Q = self.split_heads(Q)
-    K = self.split_heads(K)
-    V = self.split_heads(V)
+    self.Q = self.split_heads(self.Q)
+    self.K = self.split_heads(self.K)
+    self.V = self.split_heads(self.V)
     
     # Compute Luong attention (scaled dot product)
     # Divide by sqrt(d) for more stable gradient flow
     # Normalizes the magnitude of score with respect to d
     # shape: (n_heads, seq_len, seq_len)
     # score of each Q to each K, each element of sequence to every other
-    scores = np.matmul(Q, K.transpose(0, 2, 1)) / np.sqrt(self.head_dim)
+    scores = np.matmul(self.Q, self.K.transpose(0, 2, 1)) / np.sqrt(self.head_dim)
     
     # Softmax scores
     # shape: (n_heads, seq_len, seq_len)
-    attention_weights = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
-    attention_weights /= np.sum(attention_weights, axis=-1, keepdims=True)
+    self.attention_weights = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
+    self.attention_weights /= np.sum(self.attention_weights, axis=-1, keepdims=True)
     
     # Get weighted sum of V by attention_weights
     # shape: (n_heads, seq_len, head_dims)
-    attention_output = np.matmul(attention_weights, V)
+    attention_output = np.matmul(self.attention_weights, self.V)
     
     # Combine head outputs
     # shape: (seq_len, n_dim)
@@ -163,54 +165,49 @@ class MultiHeadAttention(Layer):
   def backward(self, output_error, learning_rate):
     """
     Backward pass through attention layer.
-    
-    Algo:
-			- We need the gradients for our 4 learnable matrices:
-   
-			- Wo error
-						- O = Concat(head[1],...,head[n])Wo
-						- dLoss/dWo = Concat(head[1],...,head[n]).t * dLoss/dOutput
-						- dLoss/dConcat(head) = dLoss/dOutput * Wo.t
-      
-      - For our QKV matrices, we need to backpropagate through:
-				- Value projection (weighted sum of attention scores)
-				- QK interaction (score that determines attention weights)
-				- Softmax of scores
-      
-      - V error
-				- dLoss/dV = A.t * dLoss/dHead
-
-				Attention weight gradient:
-				- dLoss/dA = dLoss/dHead * V.t
-    
-				Scaled dot product gradient:
-				- 
-      
-			- Q error
-			- K error
     """
     
     # Gradient of output projection layer Wo
-    wo_error = np.dot(self.output.transpose(0, 2, 1).reshape(-1, self.n_dim).T, output_error.reshape(-1, self.n_dim))
-    concat_output_error = np.dot(output_error, self.wo.T).reshape(self.input.shape[0], -1, self.n_dim)
-    
+    # shape: (n_dim, n_dim)
+    d_wo = np.dot(self.combine_heads(np.matmul(self.attention_weights, self.V)).T, output_error)
+    # shape: (seq_len, n_dim)
+    combined_output_error = np.dot(output_error, self.wo.T)
+
     # Split error between heads
-    head_errors = self.split_heads(concat_output_error)
+    # shape: (n_heads, seq_len, head_dim)
+    output_error_heads = self.split_heads(combined_output_error)
+
+    # Backprop through weighted sum
+    d_attention_weights = np.matmul(output_error_heads, self.V.transpose(0, 2, 1))
+    d_V = np.matmul(self.attention_weights.transpose(0, 2, 1), output_error_heads)
+
+    # Backprop through softmax
+    d_scores = self.attention_weights * (d_attention_weights - np.sum(self.attention_weights * d_attention_weights, axis=-1, keepdims=True))
+
+    # Backprop through scaling
+    d_scores /= np.sqrt(self.head_dim)
+
+    # Backprop through QK^T
+    d_Q = np.matmul(d_scores, self.K)
+    d_K = np.matmul(d_scores.transpose(0, 2, 1), self.Q)
+
+    # Combine gradients for each head
+    d_Q_combined = self.combine_heads(d_Q)
+    d_K_combined = self.combine_heads(d_K)
+    d_V_combined = self.combine_heads(d_V)
     
-    # Gradient for attention weights / V
-    attention_error = np.matmul(head_errors, self.wv.T)
-    value_error = np.matmul(attention_error.transpose(1, 3, 2), self.wv.T)
-    
-    # Backprop QKV
-    wq_error = np.dot(self.input.T, value_error)
-    wk_error = np.dot(self.input.T, attention_error)
-    wv_error = np.dot(self.input.T, head_errors.reshape(-1, self.n_dim))
-    
+    # Backprop through Q, K, V projections
+    d_wq = np.dot(self.input.T, d_Q_combined)
+    d_wk = np.dot(self.input.T, d_K_combined)
+    d_wv = np.dot(self.input.T, d_V_combined)
+
+    # Input error
+    d_input = np.dot(d_Q_combined, self.wq.T) + np.dot(d_K_combined, self.wk.T) + np.dot(d_V_combined, self.wv.T)
+
     # Update weights
-    self.wq -= learning_rate * wq_error
-    self.wk -= learning_rate * wk_error
-    self.wv -= learning_rate * wv_error
-    self.wo -= learning_rate * wo_error
-    
-    input_error = np.dot(value_error, self.wq.T)
-    return input_error 
+    self.wq -= learning_rate * d_wq
+    self.wk -= learning_rate * d_wk
+    self.wv -= learning_rate * d_wv
+    self.wo -= learning_rate * d_wo
+
+    return d_input
