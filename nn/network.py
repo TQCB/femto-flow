@@ -60,9 +60,9 @@ class Network:
             error /= n
             metric /= n
             
-            self.history.append({'Epoch':epoch,
-                                 'LR':learning_rate,
-                                 'Loss':error,
-                                 'Metric':metric})
+            self.history.append({'epoch':epoch,
+                                 'lr':learning_rate,
+                                 'loss':error,
+                                 'metric':metric})
             
             print(f"Epoch {epoch}/{epochs} Loss:{error} Metric:{metric}")
