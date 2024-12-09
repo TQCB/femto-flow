@@ -4,7 +4,8 @@
 - batch training
 - epoch recording
 - embedding layer
-- attention layer
+- model weight saving and loading
+- attention layer DONE
   |- masking
 - combine losses into class
 
