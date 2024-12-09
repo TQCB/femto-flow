@@ -1,12 +1,9 @@
 # TODO:
-- validation set
 - optimizer
-- batch training
-- epoch recording
+- batch training/batch gradient descent / mini batch gradient descent
 - embedding layer
 - model weight saving and loading
-- attention layer DONE
-  |- masking
-- combine losses into class
+- Make attention causal
+- combine losses into class instead of _ / d _ functions
 
 ### Work in progress project, implementing neural networks from scratch
