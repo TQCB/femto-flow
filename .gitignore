@@ -1,6 +1,7 @@
 /data
 /references
 
+active.ipynb
 train_iris.py
 train_text.py
 
