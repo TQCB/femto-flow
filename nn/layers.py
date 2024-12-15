@@ -10,35 +10,13 @@ import numpy as np
 # TODO
 #  |- HIGH
 #      |- Embedding
-#      |- Attention
-#  |- NORMAL
+#  |- LOW
 #      |- Recurrent
 #      |- Convolutional 
 
 ################################################################################
-
-class Layer:
-  def __init__(self, input_dim, output_dim):
-    self.weights = np.random.uniform(-1, 1, size=(input_dim, output_dim))
-    self.bias = np.random.uniform(-1, 1,size=output_dim) - 0.5
     
-  # compute h(X) = Y
-  def forward(self, input):
-    self.input = input
-    self.output = np.dot(self.input, self.weights) + self.bias
-    return self.output
-
-  # compute dE/dX for dE/dY and update dX
-  def backward(self, output_error, learning_rate):
-    input_error = np.dot(output_error, self.weights.T)
-    weights_error = np.dot(self.input.T, output_error)
-    
-    self.weights -= learning_rate * weights_error
-    self.bias -= learning_rate * bias_error
-        
-    return input_error
-    
-class ActivationLayer(Layer):
+class Activation():
   def __init__(self, activation):
     self.activation = activation()
 
@@ -52,7 +30,7 @@ class ActivationLayer(Layer):
   def backward(self, output_error, learning_rate):
     return self.activation.backward(self.input) * output_error
     
-class FCLayer(Layer):
+class Dense():
   def __init__(self, input_dim, output_dim):
     self.weights = np.random.rand(input_dim, output_dim) - 0.5
     self.bias = np.random.rand(1, output_dim) - 0.5
@@ -73,7 +51,7 @@ class FCLayer(Layer):
     self.bias -= learning_rate * bias_error
     return input_error
     
-class MultiHeadAttention(Layer):
+class MultiHeadAttention():
   """
   Multi Head Self Attention for Dense networks.
     
@@ -211,3 +189,82 @@ class MultiHeadAttention(Layer):
     self.wo -= learning_rate * d_wo
 
     return d_input
+  
+class Embedding():
+  def __init__(self, input_dim, output_dim, vocab_size):
+    # vocab_size rows, output_dim embedding dimensions
+    self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
+    self.vocab_size = vocab_size
+    self.output_dim = output_dim
+
+  def forward(self, input):
+    # Input is a sequence of ints representing tokens
+    # We get a local embedding for those token
+    # shape: (seq_len, output_dim)
+    self.input = input # Save the input sequence for backprop
+    self.local_embedding_weights = self.global_embedding_weights[input]
+    return self.local_embedding_weights
+
+  def backward(self, output_error, learning_rate):
+    # Create an array to accumulate gradients for each word in the vocabulary
+    d_global_embedding_weights = np.zeros_like(self.global_embedding_weights)
+
+    # Iterate through the input sequence and corresponding output error
+    for i, word_index in enumerate(self.input):
+        # Add the output error (gradient) for the current word to the accumulated gradients
+        d_global_embedding_weights[word_index] += output_error[i]
+    
+    # Update global embedding weights using the accumulated gradients and learning rate
+    self.global_embedding_weights -= learning_rate * d_global_embedding_weights
+
+    # In an embedding layer, there's no gradient to pass back to the previous layer
+    # (The input was just a sequence of integer indices)
+    return None
+  
+class PositionalEmbedding():
+  def __init__(self, input_dim, output_dim, vocab_size):
+    # vocab_size rows, output_dim embedding dimensions
+    self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
+    self.vocab_size = vocab_size
+    self.output_dim = output_dim
+
+  def get_positional_encoding(self, seq_len, dim, n=10000):
+    enc = np.empty([seq_len, dim])
+
+    # Use positional encoding from "Attention is all you Need"
+    for pos in range(seq_len):
+      for i in range(int(dim/2)):
+        enc[pos, 2*i] = np.sin(pos / (n ** (2*1/dim)))
+        enc[pos, 2*i+1] = np.cos(pos / (n ** (2*1/dim)))
+
+    return enc
+
+  def forward(self, input):
+    # Input is a sequence of ints representing tokens
+    # We get a local embedding for those token
+    # shape: (seq_len, output_dim)
+    self.input = input # Save the input sequence for backprop
+
+    # CHECK IF POSITIONAL ENCODING EXISTS, IF NOT THEN CREATE IT USING SHAPE OF
+    # INPUT -> (SEQ_LEN, INPUT_DIM)
+    seq_len = self.input.shape[0]
+    self.positional_encoding = self.get_positional_encoding(seq_len, self.output_dim)
+
+    self.local_embedding_weights = self.global_embedding_weights[input]
+    return self.local_embedding_weights + self.positional_encoding
+
+  def backward(self, output_error, learning_rate):
+    # Create an array to accumulate gradients for each word in the vocabulary
+    d_global_embedding_weights = np.zeros_like(self.global_embedding_weights)
+
+    # Iterate through the input sequence and corresponding output error
+    for i, word_index in enumerate(self.input):
+        # Add the output error (gradient) for the current word to the accumulated gradients
+        d_global_embedding_weights[word_index] += output_error[i]
+    
+    # Update global embedding weights using the accumulated gradients and learning rate
+    self.global_embedding_weights -= learning_rate * d_global_embedding_weights
+
+    # In an embedding layer, there's no gradient to pass back to the previous layer
+    # (The input was just a sequence of integer indices)
+    return None
