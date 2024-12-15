@@ -1,11 +1,6 @@
 /data
 /references
-
-active.ipynb
-train_iris.py
-train_text.py
+/working_files
 
 __pycache__
 /nn/__pycache__
-/bpe/__pycache__
-tokenizer_test.ipynb
