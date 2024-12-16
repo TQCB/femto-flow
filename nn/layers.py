@@ -26,7 +26,7 @@ class Activation():
     self.output = self.activation.forward(self.input)
     return self.output
     
-    # compute dE/dX for dE/dY 
+  # compute dE/dX for dE/dY 
   def backward(self, output_error, learning_rate):
     return self.activation.backward(self.input) * output_error
     
@@ -34,18 +34,27 @@ class Dense():
   def __init__(self, input_dim, output_dim):
     self.weights = np.random.rand(input_dim, output_dim) - 0.5
     self.bias = np.random.rand(1, output_dim) - 0.5
-        
+
   def forward(self, input):
-    self.input = input
-    self.output = np.dot(self.input, self.weights) + self.bias
+    self.input = input # shape: (batch, feature)
+    self.output = np.dot(self.input, self.weights) + self.bias # shape: (batch, neuron)
     return self.output
     
   def backward(self, output_error, learning_rate):
+    batch_size = output_error.shape[0]
+
+    # print(f"Output error: {output_error.shape}")
     input_error = np.dot(output_error, self.weights.T)
+    # print(f"Input error: {input_error.shape}")
     weights_error = np.dot(self.input.T, output_error)
+    # print(f"i/o: {self.input.shape}{output_error.shape}")
+    weights_error /= batch_size
+    # print(f"Weights error: {weights_error.shape}")
+    # print(f"Weights shape: {self.weights.shape}")
         
     # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
-    bias_error = np.sum(output_error, axis=0, keepdims=True)
+    bias_error = np.sum(output_error, axis=0, keepdims=True) # shape: 
+    bias_error /= batch_size
         
     self.weights -= learning_rate * weights_error
     self.bias -= learning_rate * bias_error
@@ -198,6 +207,7 @@ class MultiHeadSelfAttention():
 class MHSAWithoutResidual():
   """
   Multi Head Self Attention for Dense networks.
+  This version does not add the residual to the attention result.
     
   Args:
 		input dim: Dimension of input (most likely the sequence len)
