@@ -19,8 +19,8 @@ class Network:
         n = input_data.shape[0]
         result = []
         
-        for sample in range(n):
-            output = input_data[sample]
+        for batch in range(n):
+            output = input_data[batch]
             for layer in self.layers:
                 output = layer.forward(output)
             result.append(output)
@@ -38,20 +38,20 @@ class Network:
             metric = 0
             error = 0
             
-            for sample in range(n):
+            for batch in range(n):
                 learning_rate = self.learning_rate_schedule()
 
                 # Set output to input in case there is no layer
-                output = x_train[sample]
+                output = x_train[batch]
                 
                 # Get output of all layers
                 for layer in self.layers:
                     output = layer.forward(output)
                     
-                # Calculate metric, loss and gradient for each sample
-                metric += self.metric(y_train[sample], output)
-                error += self.loss(y_train[sample], output)
-                d_error = self.d_loss(y_train[sample], output)
+                # Calculate metric, loss and gradient for each batch
+                metric += self.metric(y_train[batch], output)
+                error += self.loss(y_train[batch], output)
+                d_error = self.d_loss(y_train[batch], output)
                 
                 # Backpropagate gradient
                 for layer in self.layers[::-1]:
@@ -65,4 +65,4 @@ class Network:
                                  'loss':error,
                                  'metric':metric})
             
-            print(f"Epoch {epoch}/{epochs} Loss:{error} Metric:{metric}")
+            print(f"Epoch {epoch}/{epochs} Loss:{error:.3f} Metric:{metric:.3f}")
