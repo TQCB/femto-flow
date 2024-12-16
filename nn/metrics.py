@@ -10,8 +10,9 @@ def binary_accuracy(y_true, y_pred, threshold=0.5):
     y_pred = (y_pred >= threshold) + 0
     return np.sum((y_pred == y_true)) / y_true.shape[0]
 
-def categorical_accuracy(y_true, y_pred):    
-    y_true = np.reshape(y_true, (1, -1))
-    y_pred = np.reshape(y_pred, (1, -1))
-    
-    return np.mean(np.argmax(y_true, axis=1) == np.argmax(y_pred, axis=1))
+def categorical_accuracy(y_true, y_pred):
+    batch_size = y_true.shape[0]
+    accuracy = []
+    for sample in range(batch_size):
+        accuracy.append(np.argmax(y_true[sample]) == np.argmax(y_pred[sample]))
+    return np.mean(accuracy)
