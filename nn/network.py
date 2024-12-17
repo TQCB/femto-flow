@@ -1,3 +1,5 @@
+import numpy as np
+
 class Network:
     def __init__(self):
         self.layers = []
@@ -15,7 +17,8 @@ class Network:
         self.metric = metric
         self.learning_rate_schedule = learning_rate_schedule
 
-    def predict(self, input_data):
+    def predict(self, input_data, batched_output=True):
+        # Number of batches
         n = input_data.shape[0]
         result = []
         
@@ -25,12 +28,19 @@ class Network:
                 output = layer.forward(output)
             result.append(output)
         
-        return result
+        # Instead of a list of batch results, we return a tensor stack
+        result = np.stack(result)
+
+        if batched_output:
+            return result
+        else:
+            return result.reshape((-1, result.shape[2]))
     
     def fit(self, x_train, y_train, epochs):
         if (self.loss == None) | (self.d_loss == None):
             raise AttributeError('Attributes loss or d_loss have not been set using the build() method.')
         
+        # Amount of batches
         n = x_train.shape[0]
         
         for epoch in range(epochs):
