@@ -7,13 +7,6 @@ import numpy as np
 # respectively apply the layer's calculations to an input, passing the result to
 # the next layer and propagating the error to the previous layer.
 
-# TODO
-#  |- HIGH
-#      |- Embedding
-#  |- LOW
-#      |- Recurrent
-#      |- Convolutional 
-
 ################################################################################
     
 class Activation():
