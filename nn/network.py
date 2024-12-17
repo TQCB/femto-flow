@@ -19,10 +19,10 @@ class Network:
 
     def predict(self, input_data, batched_output=True):
         # Number of batches
-        n = input_data.shape[0]
+        batches = input_data.shape[0]
         result = []
         
-        for batch in range(n):
+        for batch in range(batches):
             output = input_data[batch]
             for layer in self.layers:
                 output = layer.forward(output)
@@ -45,14 +45,15 @@ class Network:
             raise AttributeError('Attributes loss or d_loss have not been set using the build() method.')
         
         # Amount of batches
-        n = x_train.shape[0]
+        train_batches = x_train.shape[0]
+        val_batches = x_val.shape[0]
         
         for epoch in range(epochs):
             # Set metric and error to 0
             metric = 0
             error = 0
             
-            for batch in range(n):
+            for batch in range(train_batches):
                 learning_rate = self.learning_rate_schedule()
 
                 # Set output to input in case there is no layer
@@ -71,8 +72,8 @@ class Network:
                 for layer in self.layers[::-1]:
                     d_error = layer.backward(d_error, learning_rate)
 
-            error /= n
-            metric /= n
+            error /= train_batches
+            metric /= train_batches
             
             self.history.append({'epoch':epoch,
                                  'lr':learning_rate,
@@ -81,13 +82,17 @@ class Network:
             
             print(f"Epoch {epoch}/{epochs} Loss:{error:.3f} Metric:{metric:.3f}", end='')
 
-            # If we are validation, we add val info the print and to the history
+            # If we use validation, we add val info the print and to the history
             if validation:
+                val_error = 0
+                val_metric = 0
                 val_pred = self.predict(x_val)
-                # print()
-                # print(f"Valpred: {val_pred}")
-                val_error = self.loss(y_val, val_pred) / n
-                val_metric = self.metric(y_val, val_pred)
+                for batch in range(val_batches):
+                    val_error += self.loss(y_val[batch], val_pred[batch])
+                    val_metric += self.metric(y_val[batch], val_pred[batch])
+
+                val_error /= val_batches
+                val_metric /= val_batches
 
                 print(f" Val. Loss: {val_error:.3f} Val. Metric: {val_metric:.3f}", end='')
                 self.history[len(self.history)-1] = {**self.history[len(self.history)-1], **{'val_loss' : val_error, 'val_metric': val_metric}}
