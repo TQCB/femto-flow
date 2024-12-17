@@ -29,7 +29,8 @@ class Network:
             result.append(output)
         
         # Instead of a list of batch results, we return a tensor stack
-        result = np.stack(result)
+        # If there is only one result, just return the array of result
+        result = np.stack(result) if len(result) > 1 else np.array(result)
 
         if batched_output:
             return result
@@ -85,7 +86,7 @@ class Network:
                 val_pred = self.predict(x_val)
                 # print()
                 # print(f"Valpred: {val_pred}")
-                val_error = self.loss(y_val, val_pred)
+                val_error = self.loss(y_val, val_pred) / n
                 val_metric = self.metric(y_val, val_pred)
 
                 print(f" Val. Loss: {val_error:.3f} Val. Metric: {val_metric:.3f}", end='')
