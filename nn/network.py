@@ -36,7 +36,10 @@ class Network:
         else:
             return result.reshape((-1, result.shape[2]))
     
-    def fit(self, x_train, y_train, epochs):
+    def fit(self, x_train, y_train, epochs, validation=True, x_val=None, y_val=None):
+        if validation & ((x_val is None) | (y_val is None)):
+            raise ValueError('Validation data must be provided if you want to validate during fit')
+
         if (self.loss == None) | (self.d_loss == None):
             raise AttributeError('Attributes loss or d_loss have not been set using the build() method.')
         
@@ -73,6 +76,19 @@ class Network:
             self.history.append({'epoch':epoch,
                                  'lr':learning_rate,
                                  'loss':error,
-                                 'metric':metric})
+                                 'metric':metric,})
             
-            print(f"Epoch {epoch}/{epochs} Loss:{error:.3f} Metric:{metric:.3f}")
+            print(f"Epoch {epoch}/{epochs} Loss:{error:.3f} Metric:{metric:.3f}", end='')
+
+            # If we are validation, we add val info the print and to the history
+            if validation:
+                val_pred = self.predict(x_val)
+                # print()
+                # print(f"Valpred: {val_pred}")
+                val_error = self.loss(y_val, val_pred)
+                val_metric = self.metric(y_val, val_pred)
+
+                print(f" Val. Loss: {val_error:.3f} Val. Metric: {val_metric:.3f}", end='')
+                self.history[len(self.history)-1] = {**self.history[len(self.history)-1], **{'val_loss' : val_error, 'val_metric': val_metric}}
+
+            print()
