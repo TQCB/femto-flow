@@ -56,7 +56,7 @@ class Network:
                 # Backpropagate gradient
                 for layer in self.layers[::-1]:
                     d_error = layer.backward(d_error, learning_rate)
-                               
+
             error /= n
             metric /= n
             
