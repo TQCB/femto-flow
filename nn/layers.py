@@ -43,14 +43,9 @@ class Dense():
   def backward(self, output_error, learning_rate):
     batch_size = output_error.shape[0]
 
-    # print(f"Output error: {output_error.shape}")
     input_error = np.dot(output_error, self.weights.T)
-    # print(f"Input error: {input_error.shape}")
     weights_error = np.dot(self.input.T, output_error)
-    # print(f"i/o: {self.input.shape}{output_error.shape}")
     weights_error /= batch_size
-    # print(f"Weights error: {weights_error.shape}")
-    # print(f"Weights shape: {self.weights.shape}")
         
     # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
     bias_error = np.sum(output_error, axis=0, keepdims=True) # shape: 
@@ -70,10 +65,11 @@ class MultiHeadSelfAttention():
 		n_heads: Quantity of attention heads
   """
     
-  def __init__(self, input_dim, n_dim, n_heads):
+  def __init__(self, input_dim, n_dim, n_heads, return_sequences=True):
     self.n_heads = n_heads
     self.n_dim = n_dim
     self.head_dim = n_dim // n_heads # dims for qkv per head
+    self.return_sequences = return_sequences
     
     # Initialize weights for Q, K, V
     self.wq = np.random.rand(input_dim, self.n_dim) - 0.5
@@ -84,14 +80,24 @@ class MultiHeadSelfAttention():
     self.wo = np.random.rand(self.n_dim, self.n_dim) - 0.5
     
   def split_heads(self, x):
-    """Utility function to split global Q, K, V into (n_heads, seq_len, head_dim)"""
-    seq_len = x.shape[0]
-    return x.reshape(self.n_heads, seq_len, self.head_dim)
+    """
+    Utility function to split global Q, K, V
+
+    (batch, seq_len, n_dim) -> (batch, n_heads, seq_len, head_dim)
+    """
+    batches = x.shape[0]
+    seq_len = x.shape[1]
+    return x.reshape(batches, self.n_heads, seq_len, self.head_dim)
     
   def combine_heads(self, x):
-    """Utility function to combine head Q, K, V into (seq_len, n_dim)"""
-    seq_len = x.shape[1]
-    return x.reshape(seq_len, self.n_dim)
+    """
+    Utility function to combine head Q, K, V
+    
+    (batch, n_heads, seq_len, head_dim) -> (batch, seq_len, n_dim)
+    """
+    batches = x.shape[0]
+    seq_len = x.shape[2]
+    return x.reshape(batches, seq_len, self.n_dim)
   
   def forward(self, input):
     """
@@ -129,7 +135,7 @@ class MultiHeadSelfAttention():
     # Normalizes the magnitude of score with respect to d
     # shape: (n_heads, seq_len, seq_len)
     # score of each Q to each K, each element of sequence to every other
-    scores = np.matmul(self.Q, self.K.transpose(0, 2, 1)) / np.sqrt(self.head_dim)
+    scores = np.matmul(self.Q, self.K.transpose(0, 1, 3, 2)) / np.sqrt(self.head_dim)
     
     # Softmax scores
     # shape: (n_heads, seq_len, seq_len)
@@ -147,7 +153,18 @@ class MultiHeadSelfAttention():
     # Final output projection
     # shape: (seq_len, n_dim)
     output = np.dot(concat_output, self.wo)
+
+    try:
+      assert self.input.shape == output.shape
+    except AssertionError:
+      raise ValueError("Attention input and output have different dimensions")
+
+    # Add residual
     output += self.input
+
+    # If we don't want to return sequences, only return last element in sequence
+    if not self.return_sequences:
+      output = output[:,-1,:]
     
     return output
   
@@ -156,19 +173,25 @@ class MultiHeadSelfAttention():
     Backward pass through attention layer.
     """
     
+    if not self.return_sequences:
+      # Expand output error to be same size as layer output, even if we only returned a sequence
+      expanded_output_error = np.zeros_like(self.input)
+      expanded_output_error[:, -1, :] = output_error
+      output_error = expanded_output_error
+
     # Gradient of output projection layer Wo
-    # shape: (n_dim, n_dim)
-    d_wo = np.dot(self.combine_heads(np.matmul(self.attention_weights, self.V)).T, output_error)
-    # shape: (seq_len, n_dim)
+    # shape: (batch, n_dim, n_dim)
+    d_wo = np.matmul(self.combine_heads(np.matmul(self.attention_weights, self.V)).transpose(0, 2, 1), output_error)
+    # shape: (batch, seq_len, n_dim)
     combined_output_error = np.dot(output_error, self.wo.T)
 
     # Split error between heads
-    # shape: (n_heads, seq_len, head_dim)
+    # shape: (batch, n_heads, seq_len, head_dim)
     output_error_heads = self.split_heads(combined_output_error)
 
     # Backprop through weighted sum
-    d_attention_weights = np.matmul(output_error_heads, self.V.transpose(0, 2, 1))
-    d_V = np.matmul(self.attention_weights.transpose(0, 2, 1), output_error_heads)
+    d_attention_weights = np.matmul(output_error_heads, self.V.transpose(0, 1, 3, 2))
+    d_V = np.matmul(self.attention_weights.transpose(0, 1, 3, 2), output_error_heads)
 
     # Backprop through softmax
     d_scores = self.attention_weights * (d_attention_weights - np.sum(self.attention_weights * d_attention_weights, axis=-1, keepdims=True))
@@ -178,7 +201,7 @@ class MultiHeadSelfAttention():
 
     # Backprop through QK^T
     d_Q = np.matmul(d_scores, self.K)
-    d_K = np.matmul(d_scores.transpose(0, 2, 1), self.Q)
+    d_K = np.matmul(d_scores.transpose(0, 1, 3, 2), self.Q)
 
     # Combine gradients for each head
     d_Q_combined = self.combine_heads(d_Q)
@@ -186,9 +209,9 @@ class MultiHeadSelfAttention():
     d_V_combined = self.combine_heads(d_V)
     
     # Backprop through Q, K, V projections
-    d_wq = np.dot(self.input.T, d_Q_combined)
-    d_wk = np.dot(self.input.T, d_K_combined)
-    d_wv = np.dot(self.input.T, d_V_combined)
+    d_wq = np.matmul(self.input.transpose(0, 2, 1), d_Q_combined)
+    d_wk = np.matmul(self.input.transpose(0, 2, 1), d_K_combined)
+    d_wv = np.matmul(self.input.transpose(0, 2, 1), d_V_combined)
 
     # Input error
     d_input = np.dot(d_Q_combined, self.wq.T) + np.dot(d_K_combined, self.wk.T) + np.dot(d_V_combined, self.wv.T)
@@ -197,10 +220,10 @@ class MultiHeadSelfAttention():
     d_input += output_error
 
     # Update weights
-    self.wq -= learning_rate * d_wq
-    self.wk -= learning_rate * d_wk
-    self.wv -= learning_rate * d_wv
-    self.wo -= learning_rate * d_wo
+    self.wq -= learning_rate * d_wq.mean(axis=0)
+    self.wk -= learning_rate * d_wk.mean(axis=0)
+    self.wv -= learning_rate * d_wv.mean(axis=0)
+    self.wo -= learning_rate * d_wo.mean(axis=0)
 
     return d_input
   
@@ -377,17 +400,20 @@ class Embedding():
     return None
   
 class PositionalEmbedding():
-  def __init__(self, input_dim, output_dim, vocab_size):
+  def __init__(self, seq_len, output_dim, vocab_size):
     # vocab_size rows, output_dim embedding dimensions
     self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
     self.vocab_size = vocab_size
+    self.seq_len = seq_len
     self.output_dim = output_dim
 
-  def get_positional_encoding(self, seq_len, dim, n=10000):
-    enc = np.empty([seq_len, dim])
+    self.positional_encoding = self.get_positional_encoding(self.output_dim)
+
+  def get_positional_encoding(self, dim, n=10000):
+    enc = np.empty([self.seq_len, dim])
 
     # Use positional encoding from "Attention is all you Need"
-    for pos in range(seq_len):
+    for pos in range(self.seq_len):
       for i in range(int(dim/2)):
         enc[pos, 2*i] = np.sin(pos / (n ** (2*1/dim)))
         enc[pos, 2*i+1] = np.cos(pos / (n ** (2*1/dim)))
@@ -399,11 +425,7 @@ class PositionalEmbedding():
     # We get a local embedding for those token
     # shape: (seq_len, output_dim)
     self.input = input # Save the input sequence for backprop
-
-    # CHECK IF POSITIONAL ENCODING EXISTS, IF NOT THEN CREATE IT USING SHAPE OF
-    # INPUT -> (SEQ_LEN, INPUT_DIM)
-    seq_len = self.input.shape[0]
-    self.positional_encoding = self.get_positional_encoding(seq_len, self.output_dim)
+    self.batch_size = self.input.shape[0]
 
     self.local_embedding_weights = self.global_embedding_weights[input]
     return self.local_embedding_weights + self.positional_encoding
