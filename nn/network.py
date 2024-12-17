@@ -46,7 +46,8 @@ class Network:
         
         # Amount of batches
         train_batches = x_train.shape[0]
-        val_batches = x_val.shape[0]
+        if validation:
+            val_batches = x_val.shape[0]
         
         for epoch in range(epochs):
             # Set metric and error to 0
