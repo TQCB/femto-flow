@@ -301,3 +301,52 @@ class PositionalEmbedding():
     # In an embedding layer, there's no gradient to pass back to the previous layer
     # (The input was just a sequence of integer indices)
     return None
+
+class LayerNormalisation():
+  def __init__(self, dim, axis=-1, eps=1e-6):
+    self.dim = dim
+    self.axis = axis
+
+    self.gamma = np.ones(dim)
+    self.beta = np.zeros(dim)
+    self.eps = eps
+
+  def forward(self, input):
+    self.input = input
+    self.mu = np.mean(input, axis=self.axis, keepdims=True)
+    self.var = np.var(input, axis=self.axis, keepdims=True)
+
+    self.output = (input - self.mu) / np.sqrt(self.var + self.eps)
+    self.output = self.gamma * self.output + self.beta
+
+    return self.output
+
+  def backward(self, output_error, learning_rate):
+    batch_size = output_error.shape[0]
+
+    # Gradients w.r.t. gamma and beta
+    self.gamma_error = np.sum(output_error * self.output, axis=(0,1))
+    self.beta_error = np.sum(output_error, axis=(0,1))
+
+    # Gradient w.r.t. output
+    output_error *= self.gamma
+
+    # Gradient w.r.t. variance
+    var_error = output_error * (self.input - self.mu) * (-0.5) * (self.var + self.eps) ** (-1.5)
+    var_error = np.sum(var_error, axis=self.axis, keepdims=True)
+
+    # Gradient w.r.t. mu
+    mu_error = output_error * (-1) / np.sqrt(self.var + self.eps)
+    mu_error = np.sum(mu_error, axis=self.axis, keepdims=True)
+    mu_error += var_error * np.mean(-2 * (self.input - self.mu), axis=self.axis, keepdims=True)
+
+    # Gradient w.r.t. input
+    input_error = (output_error / np.sqrt(self.var + self.eps)) + \
+                  (var_error * 2 * (self.input - self.mu) / self.dim) + \
+                  (mu_error / self.dim)
+    
+    # Update parameters
+    self.gamma -= learning_rate * self.gamma_error
+    self.beta -= learning_rate * self.beta_error
+
+    return input_error
