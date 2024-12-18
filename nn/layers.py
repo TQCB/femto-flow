@@ -9,6 +9,25 @@ import numpy as np
 
 ################################################################################
     
+class MetaLayer():
+  def __init__(self, layers):
+    '''Layer that takes multiple layers and forward/backward passes through all of them sequentially'''
+    self.layers = layers
+
+  def forward(self, input):
+    output = input
+    for layer in self.layers:
+      output = layer.forward(input)
+    
+    return output
+
+  def backward(self, output_error, learning_rate):
+    input_error = output_error
+    for layer in self.layers[::-1]:
+      input_error = layer.backward(input_error, learning_rate)
+
+    return input_error
+
 class Activation():
   def __init__(self, activation):
     self.activation = activation()
@@ -23,7 +42,7 @@ class Activation():
   def backward(self, output_error, learning_rate):
     return self.activation.backward(self.input) * output_error
     
-class Dense():
+class Dense1D():
   def __init__(self, input_dim, output_dim):
     self.weights = np.random.rand(input_dim, output_dim) - 0.5
     self.bias = np.random.rand(1, output_dim) - 0.5
@@ -40,6 +59,30 @@ class Dense():
     weights_error = np.dot(self.input.T, output_error)
     weights_error /= batch_size
         
+    # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
+    bias_error = np.sum(output_error, axis=0, keepdims=True) # shape: 
+    bias_error /= batch_size
+        
+    self.weights -= learning_rate * weights_error
+    self.bias -= learning_rate * bias_error
+    return input_error
+  
+class Dense2D():
+  def __init__(self, input_dim, output_dim):
+    self.weights = np.random.rand(input_dim, output_dim) - 0.5
+    self.bias = np.random.rand(1, output_dim) - 0.5
+
+  def forward(self, input):
+    self.input = input # shape: (batch, feature)
+    self.output = np.matmul(self.input, self.weights) + self.bias # shape: (batch, neuron)
+    return self.output
+    
+  def backward(self, output_error, learning_rate):
+    batch_size = output_error.shape[0]
+    input_error = np.dot(output_error, self.weights.T)
+
+    weights_error = np.matmul(self.input.transpose(0, 2, 1), output_error)
+
     # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
     bias_error = np.sum(output_error, axis=0, keepdims=True) # shape: 
     bias_error /= batch_size
