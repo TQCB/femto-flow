@@ -1,6 +1,6 @@
 import numpy as np
 
-def batch(data, batch_size):
+def batch(data, batch_size, fill=False):
   '''
   Transform data from (sample, feature) into (batch, sample, feature)
   '''
