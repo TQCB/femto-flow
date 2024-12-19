@@ -22,3 +22,10 @@ class Softmax:
   def backward(self, x):
     s = self.forward(x)
     return s * (1 - s)
+  
+class ReLU:
+  def forward(self, x):
+    return np.max(0, x)
+  
+  def backward(self, x):
+    return np.where(x > 0, 1, 0)
