@@ -74,20 +74,18 @@ class Dense2D():
 
   def forward(self, input):
     self.input = input # shape: (batch, feature)
-    self.output = np.matmul(self.input, self.weights) + self.bias # shape: (batch, neuron)
+    self.output = np.dot(self.input, self.weights) + self.bias # shape: (batch, neuron)
     return self.output
     
   def backward(self, output_error, learning_rate):
-    batch_size = output_error.shape[0]
     input_error = np.dot(output_error, self.weights.T)
-
     weights_error = np.matmul(self.input.transpose(0, 2, 1), output_error)
-
-    # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
-    bias_error = np.sum(output_error, axis=0, keepdims=True) # shape: 
-    bias_error /= batch_size
         
-    self.weights -= learning_rate * weights_error
+    # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
+    bias_error = np.sum(output_error, axis=0) # shape: 3, 8
+    bias_error = np.sum(bias_error, axis=0, keepdims=True) # shape: 1, 8
+      
+    self.weights -= learning_rate * np.sum(weights_error, axis=0)
     self.bias -= learning_rate * bias_error
     return input_error
     
