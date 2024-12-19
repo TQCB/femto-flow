@@ -25,7 +25,19 @@ class Softmax:
   
 class ReLU:
   def forward(self, x):
-    return np.max(0, x)
+    out = np.maximum(0, x)
+    return out
   
   def backward(self, x):
     return np.where(x > 0, 1, 0)
+  
+class Swish:
+  def __init__(self, beta=1.0):
+    self.beta = beta
+
+  def forward(self, x):
+    return x * 1 / (1 + np.exp(- self.beta * x))
+
+  def backward(self, x):
+    sigmoid_x = 1 / (1 + np.exp(- self.beta * x))
+    return sigmoid_x + x * self.beta * sigmoid_x * (1 - sigmoid_x)
