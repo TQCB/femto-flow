@@ -61,3 +61,25 @@ class LinearCycleSchedule(LearningRateSchedule):
     def increment(self):
         # Update lr positively or negatively by rate based on phase
         self.lr *= 1 + (self.phase*self.rate)
+
+class Adam:
+    def __init__(self):
+        """
+        - Needs its own weights
+        - Needs to update weights at each iteration
+        - Needs to apply weights at each iteration
+        - Needs to take an LR object
+
+        1 optimiser per layer
+        init in layer init
+
+        opt method takes weights (dict(str:arr)) and grad (arr)
+        returns new weights + updates own weights
+        """
+        pass
+
+    def update(self, ):
+        pass
+
+    def optimise(self):
+        pass
