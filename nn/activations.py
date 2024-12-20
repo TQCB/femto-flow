@@ -1,5 +1,16 @@
 import numpy as np
 
+def stable_sigmoid(x):
+  x = np.clip(x, -10, 10)  # Clip to avoid overflow/underflow
+  exp_x = np.exp(-x)
+  return 1 / (1 + exp_x)
+
+def stable_softmax(x):
+  maxes = np.max(x, axis=-1, keepdims=True)
+  x_exp = np.exp(x - maxes)
+  x_sum = np.sum(x_exp, axis=-1, keepdims=True)
+  return x_exp / x_sum
+
 class TanH:
   def forward(self, x):
     return np.tanh(x)
@@ -36,8 +47,9 @@ class Swish:
     self.beta = beta
 
   def forward(self, x):
-    return x * 1 / (1 + np.exp(- self.beta * x))
+    return x * stable_sigmoid(self.beta * x)
 
   def backward(self, x):
-    sigmoid_x = 1 / (1 + np.exp(- self.beta * x))
+    # sigmoid_x = 1 / (1 + np.exp(- (self.beta * x)))
+    sigmoid_x = stable_sigmoid(self.beta * x)
     return sigmoid_x + x * self.beta * sigmoid_x * (1 - sigmoid_x)
