@@ -8,7 +8,7 @@ import numpy as np
 # the next layer and propagating the error to the previous layer.
 
 ################################################################################
-    
+
 class MetaLayer():
   def __init__(self, layers):
     '''Layer that takes multiple layers and forward/backward passes through all of them sequentially'''
@@ -73,7 +73,7 @@ class Dense2D():
     self.bias = np.random.rand(1, output_dim) - 0.5
 
   def forward(self, input):
-    self.input = input # shape: (batch, feature)
+    self.input = input # shape: (batch, seq_len, feature)
     self.output = np.dot(self.input, self.weights) + self.bias # shape: (batch, neuron)
     return self.output
     
@@ -82,10 +82,10 @@ class Dense2D():
     weights_error = np.matmul(self.input.transpose(0, 2, 1), output_error)
         
     # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
-    bias_error = np.sum(output_error, axis=0) # shape: 3, 8
+    bias_error = np.mean(output_error, axis=0) # shape: 3, 8
     bias_error = np.sum(bias_error, axis=0, keepdims=True) # shape: 1, 8
       
-    self.weights -= learning_rate * np.sum(weights_error, axis=0)
+    self.weights -= learning_rate * np.mean(weights_error, axis=0)
     self.bias -= learning_rate * bias_error
     return input_error
     
@@ -344,7 +344,7 @@ class PositionalEmbedding():
     return None
 
 class LayerNormalisation():
-  def __init__(self, dim, axis=-1, eps=1e-6):
+  def __init__(self, dim, axis=-1, eps=1e-4):
     self.dim = dim
     self.axis = axis
 
