@@ -105,47 +105,13 @@ class BytePairTokenizer:
         tokenized_corpus.append(document)
     return tokenized_corpus
   
-  def _get_sorted_merge_dict(self):
-    # Get dictionary of pairs with their merged string
-    md = {m:m[0]+m[1] for m in self.merges}
-    # Sort dictionary by length of merged string
-    return dict(sorted(md.items(), key=lambda item: len(item[1]), reverse=True))
-
-
-  def transform2(self, corpus):
-    """Iteratively merge learnt pairs of tokens in a corpus."""
-    
-    merge_dict = {m: m[0] + m[1] for m in self.merges}
-
-    for document in corpus:
-        i = 0
-        output = []
-        last_append = 0
-        while i < len(document) - 1:
-            found_merge = False
-            for merge_pair, merged_token in merge_dict.items():
-                if document[i:i + len(merge_pair)] == ''.join(merge_pair):
-                    output.append(document[last_append:i])
-                    output.append(merged_token)
-                    i += len(merge_pair)
-                    last_append = i
-                    found_merge = True
-                    break  # Found a merge, move to the next position
-
-            if not found_merge:
-                i += 1
-
-        output.append(document[last_append:])
-        # yield ''.join(output)
-        yield output
-  
   def _build_trie(self, merges):
     trie = Trie()
     for merge_pair, merged_token in merges.items():
         trie.insert(''.join(merge_pair), merged_token)
     return trie
   
-  def transform3(self, corpus):
+  def transform(self, corpus):
       """
       Efficiently merges pairs of tokens in a corpus using a Trie.
 
