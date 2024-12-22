@@ -1,6 +1,25 @@
 import regex
 from collections import Counter
 
+class TrieNode:
+    def __init__(self):
+        self.children = {}
+        self.is_end_of_word = False
+        self.merged_token = None
+
+class Trie:
+    def __init__(self):
+        self.root = TrieNode()
+
+    def insert(self, word, merged_token):
+        node = self.root
+        for char in word:
+            if char not in node.children:
+                node.children[char] = TrieNode()
+            node = node.children[char]
+        node.is_end_of_word = True
+        node.merged_token = merged_token
+
 class BytePairTokenizer:
   def __init__(self,
                target_vocab_size,
@@ -8,10 +27,18 @@ class BytePairTokenizer:
     self.target_vocab_size = target_vocab_size
     self.merges = []
     self.pattern = pattern
+
+  def _word_generator(self, corpus, chunk_size=10_000):
+    """Generates words from corpus in chunks, for memory-friendliness."""
+    for i in range(0, len(corpus), chunk_size):
+      chunk = corpus[i:i+chunk_size]
+      for doc in chunk:
+        for word in regex.findall(self.pattern, doc):
+          yield word
   
   def _compute_word_frequencies(self, corpus):
     """Compute word frequencies from input corpus."""
-    return Counter([word for word in regex.findall(self.pattern, " ".join(corpus))])
+    return Counter(self._word_generator(corpus))
   
   def _initialize_tokens(self, word_frequency):
     """Initialize tokens as single characters."""
@@ -70,7 +97,6 @@ class BytePairTokenizer:
 
         for merge_pair, merged_token in merge_dict.items():
           i = 0
-# Todo I can speed this up by a lot! need to check sets of tokens against merge pairs so we can do depth first merging!
           while i < len(document) - 1:
             if tuple(document[i:i + len(merge_pair)]) == merge_pair:
               document = document[:i] + [merged_token] + document[i + len(merge_pair):]
@@ -79,6 +105,85 @@ class BytePairTokenizer:
         tokenized_corpus.append(document)
     return tokenized_corpus
   
+  def _get_sorted_merge_dict(self):
+    # Get dictionary of pairs with their merged string
+    md = {m:m[0]+m[1] for m in self.merges}
+    # Sort dictionary by length of merged string
+    return dict(sorted(md.items(), key=lambda item: len(item[1]), reverse=True))
+
+
+  def transform2(self, corpus):
+    """Iteratively merge learnt pairs of tokens in a corpus."""
+    
+    merge_dict = {m: m[0] + m[1] for m in self.merges}
+
+    for document in corpus:
+        i = 0
+        output = []
+        last_append = 0
+        while i < len(document) - 1:
+            found_merge = False
+            for merge_pair, merged_token in merge_dict.items():
+                if document[i:i + len(merge_pair)] == ''.join(merge_pair):
+                    output.append(document[last_append:i])
+                    output.append(merged_token)
+                    i += len(merge_pair)
+                    last_append = i
+                    found_merge = True
+                    break  # Found a merge, move to the next position
+
+            if not found_merge:
+                i += 1
+
+        output.append(document[last_append:])
+        # yield ''.join(output)
+        yield output
+  
+  def _build_trie(self, merges):
+    trie = Trie()
+    for merge_pair, merged_token in merges.items():
+        trie.insert(''.join(merge_pair), merged_token)
+    return trie
+  
+  def transform3(self, corpus):
+      """
+      Efficiently merges pairs of tokens in a corpus using a Trie.
+
+      Args:
+          corpus: An iterable of strings (the corpus).
+
+      Yields:
+          Merged strings.
+      """
+      merge_dict = {m: m[0] + m[1] for m in self.merges}
+      trie = self._build_trie(merge_dict)
+
+      for document in corpus:
+          i = 0
+          output = []
+          last_append = 0
+          while i < len(document):
+              node = trie.root
+              j = i
+              last_match = None
+              while j < len(document) and document[j] in node.children:
+                  node = node.children[document[j]]
+                  if node.is_end_of_word:
+                      last_match = (j + 1, node.merged_token) # Store the end position and the merged token
+                  j += 1
+
+              if last_match:
+                  end_pos, merged_token = last_match
+                  output.append(document[last_append:i])
+                  output.append(merged_token)
+                  i = end_pos
+                  last_append = i
+              else:
+                  i += 1
+
+          output.append(document[last_append:])
+          yield output
+
 class Vectorizer:
   def __init__(self):
     self.vocabulary = {}
