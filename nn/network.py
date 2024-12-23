@@ -37,7 +37,7 @@ class Network:
         else:
             return result.reshape((-1, result.shape[2]))
     
-    def fit(self, x_train, y_train, epochs, validation=True, x_val=None, y_val=None):
+    def fit(self, x_train, y_train, epochs, validation=True, x_val=None, y_val=None, callbacks=None):
         if validation & ((x_val is None) | (y_val is None)):
             raise ValueError('Validation data must be provided if you want to validate during fit')
 
@@ -52,9 +52,12 @@ class Network:
         for epoch in range(epochs):
             # Set metric and error to 0
             metric = 0
-            error = 0
+            self.error = 0
             
             for batch in range(train_batches):
+                print(f"Batch {batch} out of {train_batches}, Loss: {self.error/(batch+1):.3f} Metric: {metric/(batch+1):.3f}", end="")
+                print("\r", end="")
+
                 learning_rate = self.learning_rate_schedule()
 
                 # Set output to input in case there is no layer
@@ -66,22 +69,22 @@ class Network:
                     
                 # Calculate metric, loss and gradient for each batch
                 metric += self.metric(y_train[batch], output)
-                error += self.loss(y_train[batch], output)
+                self.error += self.loss(y_train[batch], output)
                 d_error = self.d_loss(y_train[batch], output)
                 
                 # Backpropagate gradient
                 for layer in self.layers[::-1]:
                     d_error = layer.backward(d_error, learning_rate)
 
-            error /= train_batches
+            self.error /= train_batches
             metric /= train_batches
             
             self.history.append({'epoch':epoch,
                                  'lr':learning_rate,
-                                 'loss':error,
+                                 'loss':self.error,
                                  'metric':metric,})
             
-            print(f"Epoch {epoch}/{epochs} Loss:{error:.3f} Metric:{metric:.3f}", end='')
+            print(f"Epoch {epoch}/{epochs} Loss:{self.error:.3f} Metric:{metric:.3f}", end='')
 
             # If we use validation, we add val info the print and to the history
             if validation:
@@ -99,3 +102,6 @@ class Network:
                 self.history[len(self.history)-1] = {**self.history[len(self.history)-1], **{'val_loss' : val_error, 'val_metric': val_metric}}
 
             print()
+
+            for callback in callbacks:
+                callback(self)
