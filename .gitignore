@@ -1,6 +1,7 @@
 /data
 /references
 /working_files
+/checkpoints
 
 __pycache__
 /nn/__pycache__
