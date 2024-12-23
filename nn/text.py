@@ -27,18 +27,10 @@ class BytePairTokenizer:
     self.target_vocab_size = target_vocab_size
     self.merges = []
     self.pattern = pattern
-
-  def _word_generator(self, corpus, chunk_size=10_000):
-    """Generates words from corpus in chunks, for memory-friendliness."""
-    for i in range(0, len(corpus), chunk_size):
-      chunk = corpus[i:i+chunk_size]
-      for doc in chunk:
-        for word in regex.findall(self.pattern, doc):
-          yield word
   
   def _compute_word_frequencies(self, corpus):
     """Compute word frequencies from input corpus."""
-    return Counter(self._word_generator(corpus))
+    return Counter([word for word in regex.findall(self.pattern, "".join(corpus))])
   
   def _initialize_tokens(self, word_frequency):
     """Initialize tokens as single characters."""
@@ -93,72 +85,68 @@ class BytePairTokenizer:
     return trie
   
   def transform(self, corpus):
-      """
-      Efficiently merges pairs of tokens in a corpus using a Trie.
+    """
+    Efficiently merges pairs of tokens in a corpus using a Trie.
 
-      Args:
-          corpus: An iterable of strings (the corpus).
+    Args:
+        corpus: An iterable of strings (the corpus).
 
-      Yields:
-          Merged strings.
-      """
-      # Build trie from 
-      merge_dict = {m: m[0] + m[1] for m in self.merges}
-      trie = self._build_trie(merge_dict)
+    Yields:
+        Merged strings.
+    """
+    # Build trie from 
+    merge_dict = {m: m[0] + m[1] for m in self.merges}
+    trie = self._build_trie(merge_dict)
 
-      for document in corpus:
-          i = 0
-          output = []
-          last_append = 0
-          while i < len(document):
-              node = trie.root
-              j = i
-              last_match = None
-              while j < len(document) and document[j] in node.children:
-                  node = node.children[document[j]]
-                  if node.is_end_of_word:
-                      last_match = (j + 1, node.merged_token) # Store the end position and the merged token
-                  j += 1
+    for document in corpus:
+      i = 0
+      output = []
+      last_append = 0
+      while i < len(document):
+        node = trie.root
+        j = i
+        last_match = None
+        while j < len(document) and document[j] in node.children:
+          node = node.children[document[j]]
+          if node.is_end_of_word:
+            last_match = (j + 1, node.merged_token) # Store the end position and the merged token
+          j += 1
 
-              if last_match:
-                  end_pos, merged_token = last_match
-                  output.append(document[last_append:i])
-                  output.append(merged_token)
-                  i = end_pos
-                  last_append = i
-              else:
-                  i += 1
+        if last_match:
+          end_pos, merged_token = last_match
+          output.append(document[last_append:i])
+          output.append(merged_token)
+          i = end_pos
+          last_append = i
+        else:
+          i += 1
 
-          output.append(document[last_append:])
-          yield output
+      output.append(document[last_append:])
+      yield output
+
+from collections import defaultdict
 
 class Vectorizer:
-  def __init__(self):
+  def __init__(self, vocab_size):
+    self.vocab_size= vocab_size
     self.vocabulary = {}
-    self.inverse_vocabulary = {}
+    self.inverse_vocabulary = defaultdict(int)
   
   def fit(self, tokenized_corpus):
     tokens = [tok for doc in tokenized_corpus for tok in doc]
-    token_frequency = Counter(tokens).most_common()
+    token_frequency = Counter(tokens).most_common(self.vocab_size)
 
     integer = 1
-
     for token, _ in token_frequency:
       self.vocabulary[integer] = token
       self.inverse_vocabulary[token] = integer
       integer += 1
   
   def transform(self, tokens):
-    vectorized_corpus = []
-
-    for doc in tokens:
-      vectorized_document = []
-
-      for tok in doc:
-        vectorized_document.append(self.inverse_vocabulary[tok])
-
-      vectorized_corpus.append(vectorized_document)
-
+    vectorized_corpus = [
+        [self.inverse_vocabulary.get(tok, 0) for tok in doc]
+        for doc in tokens
+    ]
     return vectorized_corpus
   
   def fit_transform(self, tokens):
@@ -170,6 +158,6 @@ class Vectorizer:
     for doc in tokens:
       tokenized_document = []
       for tok in doc:
-        tokenized_document.append(self.vocabulary[tok])
+        tokenized_document.append(self.vocabulary.get(tok, '<UNK>'))
       tokenized_corpus.append(tokenized_document)
     return tokenized_corpus
