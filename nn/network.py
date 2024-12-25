@@ -37,7 +37,7 @@ class Network:
         else:
             return result.reshape((-1, result.shape[2]))
     
-    def fit(self, x_train, y_train, epochs, validation=True, x_val=None, y_val=None, callbacks=None):
+    def fit(self, x_train, y_train, epochs, validation=True, x_val=None, y_val=None, callbacks=None, batch_print_steps=None):
         if validation & ((x_val is None) | (y_val is None)):
             raise ValueError('Validation data must be provided if you want to validate during fit')
 
@@ -55,8 +55,10 @@ class Network:
             self.error = 0
             
             for batch in range(train_batches):
-                print(f"Batch {batch} out of {train_batches}, Loss: {self.error/(batch+1):.3f} Metric: {metric/(batch+1):.3f}", end="")
-                print("\r", end="")
+                if batch_print_steps is not None:
+                    if batch % batch_print_steps == 0:
+                        print(f"Batch {batch} out of {train_batches}, Loss: {self.error/(batch+1):.3f} Metric: {metric/(batch+1):.3f}", end="")
+                        print("\r", end="")
 
                 learning_rate = self.learning_rate_schedule()
 
