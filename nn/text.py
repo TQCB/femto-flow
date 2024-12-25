@@ -91,13 +91,14 @@ class BytePairTokenizer:
     Args:
         corpus: An iterable of strings (the corpus).
 
-    Yields:
-        Merged strings.
+    Returns:
+        Merged corpus.
     """
     # Build trie from 
     merge_dict = {m: m[0] + m[1] for m in self.merges}
     trie = self._build_trie(merge_dict)
 
+    result = []
     for document in corpus:
       i = 0
       output = []
@@ -122,7 +123,8 @@ class BytePairTokenizer:
           i += 1
 
       output.append(document[last_append:])
-      yield output
+      result.append(output)
+    return result
 
 from collections import defaultdict
 
@@ -134,7 +136,7 @@ class Vectorizer:
   
   def fit(self, tokenized_corpus):
     tokens = [tok for doc in tokenized_corpus for tok in doc]
-    token_frequency = Counter(tokens).most_common(self.vocab_size)
+    token_frequency = Counter(tokens).most_common(self.vocab_size - 1)
 
     integer = 1
     for token, _ in token_frequency:
