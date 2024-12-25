@@ -15,3 +15,10 @@ class SaveOnProgressCallback:
       self.save_count += 1
     else:
       pass
+
+class PrintLRCallback:
+  def __init__(self):
+    pass
+
+  def __call__(self, model):
+    print(f"Learning rate: {model.lr}")
