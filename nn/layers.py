@@ -49,8 +49,9 @@ class Dense1D():
   def __init__(self, input_dim, output_dim):
     # Xavier/Glorot uniform initialization
     limit = np.sqrt(6 / (input_dim + output_dim))
+
     self.weights = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
-    self.bias = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
+    self.bias = np.zeros((1,output_dim))
 
     # self.weights = np.random.rand(input_dim, output_dim) - 0.5
     # self.bias = np.random.rand(1, output_dim) - 0.5
@@ -80,7 +81,7 @@ class Dense2D():
     # Xavier/Glorot uniform initialization
     limit = np.sqrt(6 / (input_dim + output_dim))
     self.weights = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
-    self.bias = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
+    self.bias = np.zeros((1, output_dim))
 
     # self.weights = np.random.rand(input_dim, output_dim) - 0.5
     # self.bias = np.random.rand(1, output_dim) - 0.5
