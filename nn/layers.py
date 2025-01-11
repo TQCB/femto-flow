@@ -10,9 +10,10 @@ import numpy as np
 ################################################################################
 
 class MetaLayer():
-  def __init__(self, layers):
+  def __init__(self, layers, clip=0):
     '''Layer that takes multiple layers and forward/backward passes through all of them sequentially'''
     self.layers = layers
+    self.clip = clip
 
   def forward(self, input):
     output = input
@@ -25,6 +26,8 @@ class MetaLayer():
     input_error = output_error
     for layer in self.layers[::-1]:
       input_error = layer.backward(input_error, learning_rate)
+      if self.clip > 0:
+        input_error = np.clip(input_error, -self.clip, self.clip)
 
     return input_error
 
@@ -44,8 +47,13 @@ class Activation():
     
 class Dense1D():
   def __init__(self, input_dim, output_dim):
-    self.weights = np.random.rand(input_dim, output_dim) - 0.5
-    self.bias = np.random.rand(1, output_dim) - 0.5
+    # Xavier/Glorot uniform initialization
+    limit = np.sqrt(6 / (input_dim + output_dim))
+    self.weights = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
+    self.bias = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
+
+    # self.weights = np.random.rand(input_dim, output_dim) - 0.5
+    # self.bias = np.random.rand(1, output_dim) - 0.5
 
   def forward(self, input):
     self.input = input # shape: (batch, feature)
@@ -69,8 +77,13 @@ class Dense1D():
   
 class Dense2D():
   def __init__(self, input_dim, output_dim):
-    self.weights = np.random.rand(input_dim, output_dim) - 0.5
-    self.bias = np.random.rand(1, output_dim) - 0.5
+    # Xavier/Glorot uniform initialization
+    limit = np.sqrt(6 / (input_dim + output_dim))
+    self.weights = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
+    self.bias = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
+
+    # self.weights = np.random.rand(input_dim, output_dim) - 0.5
+    # self.bias = np.random.rand(1, output_dim) - 0.5
 
   def forward(self, input):
     self.input = input # shape: (batch, seq_len, feature)
@@ -99,18 +112,26 @@ class MultiHeadSelfAttention():
 		n_heads: Quantity of attention heads
   """
     
-  def __init__(self, input_dim, n_dim, n_heads, residual=True, causal=True, return_sequences=True):
+  def __init__(self, input_dim, n_dim, n_heads, residual=True, causal=True, return_sequences=True, DEBUG_CLIPPING=False):
     self.n_heads = n_heads
     self.n_dim = n_dim
     self.head_dim = n_dim // n_heads # dims for qkv per head
     self.residual = residual
     self.causal = causal
     self.return_sequences = return_sequences
+    self.DEBUG_CLIPPING = DEBUG_CLIPPING
     
+    # Xavier/Glorot uniform initialization
+    limit = np.sqrt(6 / (input_dim + n_dim))
+
     # Initialize weights for Q, K, V
-    self.wq = np.random.rand(input_dim, self.n_dim) - 0.5
-    self.wk = np.random.rand(input_dim, self.n_dim) - 0.5
-    self.wv = np.random.rand(input_dim, self.n_dim) - 0.5
+    self.wq = np.random.uniform(-limit, limit, size=(input_dim, n_dim))
+    self.wk = np.random.uniform(-limit, limit, size=(input_dim, n_dim))
+    self.wv = np.random.uniform(-limit, limit, size=(input_dim, n_dim))
+
+    # self.wq = np.random.rand(input_dim, self.n_dim) - 0.5
+    # self.wk = np.random.rand(input_dim, self.n_dim) - 0.5
+    # self.wv = np.random.rand(input_dim, self.n_dim) - 0.5
     
     # Output projection weights
     self.wo = np.random.rand(self.n_dim, self.n_dim) - 0.5
@@ -171,6 +192,9 @@ class MultiHeadSelfAttention():
     # Normalizes the magnitude of score with respect to d
     # shape: (n_heads, seq_len, seq_len)
     # score of each Q to each K, each element of sequence to every other
+    if self.DEBUG_CLIPPING:
+      self.Q = np.clip(self.Q, -1, 1)
+      self.K = np.clip(self.K, -1, 1)
     scores = np.matmul(self.Q, self.K.transpose(0, 1, 3, 2)) / np.sqrt(self.head_dim)
     
     # Softmax scores
@@ -231,8 +255,12 @@ class MultiHeadSelfAttention():
     d_V = np.matmul(self.attention_weights.transpose(0, 1, 3, 2), output_error_heads)
 
     # Backprop through softmax
-    d_scores = self.attention_weights * (d_attention_weights - np.sum(self.attention_weights * d_attention_weights, axis=-1, keepdims=True))
-
+    # d_scores = self.attention_weights * (d_attention_weights - np.sum(self.attention_weights * d_attention_weights, axis=-1, keepdims=True))
+    # TRYING TO DEBUG NUMERICAL STABILITY IN ATTENTION
+    TEMPORARY_DEBUG_MUL = self.attention_weights * d_attention_weights
+    TEMPORARY_DEBUG_SUM = np.sum(TEMPORARY_DEBUG_MUL, axis=-1, keepdims=True)
+    d_scores = self.attention_weights * (d_attention_weights - TEMPORARY_DEBUG_SUM)
+    
     # Backprop through scaling
     d_scores /= np.sqrt(self.head_dim)
 
@@ -251,6 +279,13 @@ class MultiHeadSelfAttention():
     d_wv = np.matmul(self.input.transpose(0, 2, 1), d_V_combined)
 
     # Input error
+    if self.DEBUG_CLIPPING:
+      d_Q_combined = np.clip(d_Q_combined, -1, 1)
+      d_K_combined = np.clip(d_K_combined, -1, 1)
+      d_V_combined = np.clip(d_V_combined, -1, 1)
+      self.wq = np.clip(self.wq, -1, 1)
+      self.wk = np.clip(self.wk, -1, 1)
+      self.wv = np.clip(self.wv, -1, 1)
     d_input = np.dot(d_Q_combined, self.wq.T) + np.dot(d_K_combined, self.wk.T) + np.dot(d_V_combined, self.wv.T)
 
     # Add error from residual connection
@@ -267,8 +302,12 @@ class MultiHeadSelfAttention():
     
 class Embedding():
   def __init__(self, input_dim, output_dim, vocab_size):
+    # Xavier/Glorot uniform initialization
+    limit = np.sqrt(6 / (vocab_size + output_dim))
+
     # vocab_size rows, output_dim embedding dimensions
-    self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
+    self.global_embedding_weights = np.random.uniform(-limit, limit, size=(vocab_size, output_dim))
+    # self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
     self.vocab_size = vocab_size
     self.output_dim = output_dim
 
