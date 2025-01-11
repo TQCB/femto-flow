@@ -1,6 +1,8 @@
 import regex
 from collections import Counter
 
+PATTERN = r"""'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]+|[^ \s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+
 class TrieNode:
     def __init__(self):
         self.children = {}
@@ -22,11 +24,10 @@ class Trie:
 
 class BytePairTokenizer:
   def __init__(self,
-               target_vocab_size,
-               pattern=r"""'s|'t|'re|'ve|'m|'ll|'d| ?[\p{L}]+| ?[\p{N}]+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""):
+               target_vocab_size):
     self.target_vocab_size = target_vocab_size
     self.merges = []
-    self.pattern = pattern
+    self.pattern = PATTERN
   
   def _compute_word_frequencies(self, corpus):
     """Compute word frequencies from input corpus."""
@@ -103,17 +104,17 @@ class BytePairTokenizer:
       i = 0
       output = []
       last_append = 0
-      while i < len(document):
+      while i < len(document): # iterate over every char in doc
         node = trie.root
-        j = i
+        j = i # start iterating again from that char
         last_match = None
-        while j < len(document) and document[j] in node.children:
-          node = node.children[document[j]]
+        while j < len(document) and document[j] in node.children: # if we're in doc and char is a node
+          node = node.children[document[j]] # go to that node
           if node.is_end_of_word:
-            last_match = (j + 1, node.merged_token) # Store the end position and the merged token
-          j += 1
+            last_match = (j + 1, node.merged_token) # store the end position and the merged token
+          j += 1 # keep going through trie
 
-        if last_match:
+        if last_match: # once we left trie because char isn't a node
           end_pos, merged_token = last_match
           output.append(document[last_append:i])
           output.append(merged_token)
@@ -123,6 +124,7 @@ class BytePairTokenizer:
           i += 1
 
       output.append(document[last_append:])
+      # output.append(list("".join(document[last_append:])))
       result.append(output)
     return result
 
@@ -137,6 +139,8 @@ class Vectorizer:
   def fit(self, tokenized_corpus):
     tokens = [tok for doc in tokenized_corpus for tok in doc]
     token_frequency = Counter(tokens).most_common(self.vocab_size - 1)
+    self.vocabulary[0] = '<UNK>'
+    self.inverse_vocabulary['<UNK>'] = 0
 
     integer = 1
     for token, _ in token_frequency:
