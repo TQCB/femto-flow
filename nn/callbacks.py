@@ -9,7 +9,7 @@ class SaveOnProgressCallback:
   
   def __call__(self, model):
     if model.error < self.min_error:
-      current_save_path = self.save_path + str(self.save_count) + ".pkl"
+      current_save_path = self.save_path + '/' + str(self.save_count) + ".pkl"
       with open(current_save_path, 'wb') as f:
         pickle.dump(model, f)
       self.save_count += 1
