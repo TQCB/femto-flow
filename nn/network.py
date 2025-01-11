@@ -37,7 +37,7 @@ class Network:
         else:
             return result.reshape((-1, result.shape[2]))
     
-    def fit(self, x_train, y_train, epochs, validation=True, x_val=None, y_val=None, callbacks=None, batch_print_steps=None):
+    def fit(self, x_train, y_train, epochs, train_steps=None, val_steps=None, validation=True, x_val=None, y_val=None, callbacks=[], batch_print_steps=None):
         if validation & ((x_val is None) | (y_val is None)):
             raise ValueError('Validation data must be provided if you want to validate during fit')
 
@@ -46,18 +46,31 @@ class Network:
         
         # Amount of batches
         train_batches = x_train.shape[0]
+        if train_steps is None:
+            train_steps = train_batches
+        if train_steps > train_batches:
+            raise ValueError("Cannot have more training steps than batches.")
+
         if validation:
             val_batches = x_val.shape[0]
-        
+            if val_steps is None:
+                val_steps = val_batches
+            if val_steps > val_batches:
+                raise ValueError("Cannot have more validation steps than batches.")
+
         for epoch in range(epochs):
             # Set metric and error to 0
             metric = 0
             self.error = 0
             
-            for batch in range(train_batches):
+            for batch in range(train_steps):
+                # Randomly select a batch
+                i = batch
+                batch = np.random.randint(train_batches)
+
                 if batch_print_steps is not None:
-                    if batch % batch_print_steps == 0:
-                        print(f"Batch {batch} out of {train_batches}, Loss: {self.error/(batch+1):.3f} Metric: {metric/(batch+1):.3f}", end="")
+                    if i % batch_print_steps == 0:
+                        print(f"Batch {i}/{train_steps} Loss:{self.error/(i+1):.3f} Metric:{metric/(i+1):.3f}", end="")
                         print("\r", end="")
 
                 learning_rate = self.learning_rate_schedule()
@@ -77,9 +90,11 @@ class Network:
                 # Backpropagate gradient
                 for layer in self.layers[::-1]:
                     d_error = layer.backward(d_error, learning_rate)
+                    if d_error is not None:
+                        d_error = np.clip(d_error, -1, 1)
 
-            self.error /= train_batches
-            metric /= train_batches
+            self.error /= train_steps
+            metric /= train_steps
             
             self.history.append({'epoch':epoch,
                                  'lr':learning_rate,
@@ -92,13 +107,19 @@ class Network:
             if validation:
                 val_error = 0
                 val_metric = 0
-                val_pred = self.predict(x_val)
-                for batch in range(val_batches):
-                    val_error += self.loss(y_val[batch], val_pred[batch])
-                    val_metric += self.metric(y_val[batch], val_pred[batch])
 
-                val_error /= val_batches
-                val_metric /= val_batches
+                # Select val_steps random batches from val data
+                sample_idx = np.random.randint(val_batches, size=val_steps)
+                sample_x_val = x_val[sample_idx]
+                sample_y_val = y_val[sample_idx]
+
+                val_pred = self.predict(sample_x_val)
+                for batch in range(val_steps):
+                    val_error += self.loss(sample_y_val[batch], val_pred[batch])
+                    val_metric += self.metric(sample_y_val[batch], val_pred[batch])
+
+                val_error /= val_steps
+                val_metric /= val_steps
 
                 print(f" Val. Loss: {val_error:.3f} Val. Metric: {val_metric:.3f}", end='')
                 self.history[len(self.history)-1] = {**self.history[len(self.history)-1], **{'val_loss' : val_error, 'val_metric': val_metric}}
