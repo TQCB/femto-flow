@@ -2,7 +2,7 @@ import numpy as np
 
 ################################################################################
 
-# Module containing definitions of different layers for our neural networks.
+# Module containing definitions of different layers for my neural networks.
 # Layers at a minimum define forward and backward pass methods. These 
 # respectively apply the layer's calculations to an input, passing the result to
 # the next layer and propagating the error to the previous layer.
@@ -113,14 +113,13 @@ class MultiHeadSelfAttention():
 		n_heads: Quantity of attention heads
   """
     
-  def __init__(self, input_dim, n_dim, n_heads, residual=True, causal=True, return_sequences=True, DEBUG_CLIPPING=False):
+  def __init__(self, input_dim, n_dim, n_heads, residual=True, causal=True, return_sequences=True):
     self.n_heads = n_heads
     self.n_dim = n_dim
     self.head_dim = n_dim // n_heads # dims for qkv per head
     self.residual = residual
     self.causal = causal
     self.return_sequences = return_sequences
-    self.DEBUG_CLIPPING = DEBUG_CLIPPING
     
     # Xavier/Glorot uniform initialization
     limit = np.sqrt(6 / (input_dim + n_dim))
@@ -193,9 +192,6 @@ class MultiHeadSelfAttention():
     # Normalizes the magnitude of score with respect to d
     # shape: (n_heads, seq_len, seq_len)
     # score of each Q to each K, each element of sequence to every other
-    if self.DEBUG_CLIPPING:
-      self.Q = np.clip(self.Q, -1, 1)
-      self.K = np.clip(self.K, -1, 1)
     scores = np.matmul(self.Q, self.K.transpose(0, 1, 3, 2)) / np.sqrt(self.head_dim)
     
     # Softmax scores
@@ -205,6 +201,7 @@ class MultiHeadSelfAttention():
     
     # Get weighted sum of V by attention_weights
     # shape: (n_heads, seq_len, head_dims)
+    self.V = np.clip(self.V, -1, 1) # lots of overflows, clipping V helps enormously (DEBUG)
     attention_output = np.matmul(self.attention_weights, self.V)
     
     # Combine head outputs
@@ -252,15 +249,13 @@ class MultiHeadSelfAttention():
     output_error_heads = self.split_heads(combined_output_error)
 
     # Backprop through weighted sum
+    self.V = np.clip(self.V, -1, 1) # lots of overflows, clipping V helps enormously (DEBUG)
     d_attention_weights = np.matmul(output_error_heads, self.V.transpose(0, 1, 3, 2))
+
     d_V = np.matmul(self.attention_weights.transpose(0, 1, 3, 2), output_error_heads)
 
     # Backprop through softmax
-    # d_scores = self.attention_weights * (d_attention_weights - np.sum(self.attention_weights * d_attention_weights, axis=-1, keepdims=True))
-    # TRYING TO DEBUG NUMERICAL STABILITY IN ATTENTION
-    TEMPORARY_DEBUG_MUL = self.attention_weights * d_attention_weights
-    TEMPORARY_DEBUG_SUM = np.sum(TEMPORARY_DEBUG_MUL, axis=-1, keepdims=True)
-    d_scores = self.attention_weights * (d_attention_weights - TEMPORARY_DEBUG_SUM)
+    d_scores = self.attention_weights * (d_attention_weights - np.sum(self.attention_weights * d_attention_weights, axis=-1, keepdims=True))
     
     # Backprop through scaling
     d_scores /= np.sqrt(self.head_dim)
@@ -280,13 +275,6 @@ class MultiHeadSelfAttention():
     d_wv = np.matmul(self.input.transpose(0, 2, 1), d_V_combined)
 
     # Input error
-    if self.DEBUG_CLIPPING:
-      d_Q_combined = np.clip(d_Q_combined, -1, 1)
-      d_K_combined = np.clip(d_K_combined, -1, 1)
-      d_V_combined = np.clip(d_V_combined, -1, 1)
-      self.wq = np.clip(self.wq, -1, 1)
-      self.wk = np.clip(self.wk, -1, 1)
-      self.wv = np.clip(self.wv, -1, 1)
     d_input = np.dot(d_Q_combined, self.wq.T) + np.dot(d_K_combined, self.wk.T) + np.dot(d_V_combined, self.wv.T)
 
     # Add error from residual connection
@@ -413,14 +401,19 @@ class LayerNormalisation():
     output_error *= self.gamma
 
     # Gradient w.r.t. variance
+    self.var = np.clip(self.var, -1, 1) # lots of overflows, clipping helps (DEBUG)
+    self.mu = np.clip(self.mu, -1, 1) # lots of overflows, clipping helps (DEBUG)
+
     var_error = output_error * (self.input - self.mu) * (-0.5) * (self.var + self.eps) ** (-1.5)
     var_error = np.sum(var_error, axis=self.axis, keepdims=True)
+
+    print(np.max(var_error)) if np.max(var_error) > 1e3 else None
 
     # Gradient w.r.t. mu
     mu_error = output_error * (-1) / np.sqrt(self.var + self.eps)
     mu_error = np.sum(mu_error, axis=self.axis, keepdims=True)
     mu_error += var_error * np.mean(-2 * (self.input - self.mu), axis=self.axis, keepdims=True)
-
+    
     # Gradient w.r.t. input
     input_error = (output_error / np.sqrt(self.var + self.eps)) + \
                   (var_error * 2 * (self.input - self.mu) / self.dim) + \
