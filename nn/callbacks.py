@@ -21,4 +21,4 @@ class PrintLRCallback:
     pass
 
   def __call__(self, model):
-    print(f"Learning rate: {model.lr}")
+    print(f"Learning rate: {model.learning_rate_schedule.lr:.3e}")
