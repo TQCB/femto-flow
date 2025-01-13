@@ -391,8 +391,6 @@ class LayerNormalisation():
     return self.output
 
   def backward(self, output_error, learning_rate):
-    batch_size = output_error.shape[0]
-
     # Gradients w.r.t. gamma and beta
     self.gamma_error = np.sum(output_error * self.output, axis=(0,1))
     self.beta_error = np.sum(output_error, axis=(0,1))
@@ -407,8 +405,6 @@ class LayerNormalisation():
     var_error = output_error * (self.input - self.mu) * (-0.5) * (self.var + self.eps) ** (-1.5)
     var_error = np.sum(var_error, axis=self.axis, keepdims=True)
 
-    print(np.max(var_error)) if np.max(var_error) > 1e3 else None
-
     # Gradient w.r.t. mu
     mu_error = output_error * (-1) / np.sqrt(self.var + self.eps)
     mu_error = np.sum(mu_error, axis=self.axis, keepdims=True)
@@ -422,5 +418,10 @@ class LayerNormalisation():
     # Update parameters
     self.gamma -= learning_rate * self.gamma_error
     self.beta -= learning_rate * self.beta_error
+    
+    # Clipping these helps a lot with stability
+    clip_limit = 1e3
+    self.gamma = np.clip(self.gamma, -clip_limit, clip_limit)
+    self.beta = np.clip(self.beta, -clip_limit, clip_limit)
 
     return input_error
