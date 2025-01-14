@@ -64,8 +64,21 @@ class LinearCycleSchedule(LearningRateSchedule):
     # Update lr positively or negatively by rate based on phase
     self.lr *= 1 + (self.phase*self.rate)
 
-class Adam:
-  def __init__(self, weights, beta_1=0.9, beta_2=0.999, epsilon=10e-8):
+class DirectOptimizer():
+  def __init__(self, weights):
+    pass
+
+  def update_parameters(self, gradient):
+    pass
+  
+  def update_weights(self, weights, learning_rate):
+    pass
+
+  def apply_gradients(self, weights, gradient, learning_rate):
+    return weights - learning_rate * gradient
+
+class AdamOptimizer():
+  def __init__(self, weights, beta_1=0.9, beta_2=0.999, epsilon=1e-8):
     """
     Handles weight updates using ADAM optimization.
     
@@ -103,9 +116,8 @@ class Adam:
     self.epsilon = epsilon
 
     # Initialize momentum and velocity m, v based on input
-    weights_shape = weights.shape
-    self.m = np.zeros(shape=weights_shape)
-    self.v = np.zeros(shape=weights_shape)
+    self.m = np.zeros(shape=weights.shape)
+    self.v = np.zeros(shape=weights.shape)
 
   def update_parameters(self, gradient):
     """Update m, v based on mt-1, vt-1 and gradients"""
@@ -114,11 +126,12 @@ class Adam:
 
     # Update m, v
     self.m = self.beta_1 * self.m + (1 - self.beta_1) * gradient
-    self.v = self.beta_2 * self.v + (1 - self.beta_2) * gradient**2
+    self.v = self.beta_2 * self.v + (1 - self.beta_2) * (gradient ** 2)
 
     # Correct initialization bias of m, v
-    self.m = self.m / (1 - self.beta_1**self.t)
-    self.v = self.v / (1 - self.beta_2**self.t)
+    # print(f"DEBUG: {self.beta_2**self.t}")
+    self.m = self.m / (1 - self.beta_1**self.t + self.epsilon)
+    self.v = self.v / (1 - self.beta_2**self.t + self.epsilon)
   
   def update_weights(self, weights, learning_rate):
     """Update w based on m, v and learning rate"""
