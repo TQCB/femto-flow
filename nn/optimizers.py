@@ -63,39 +63,34 @@ class LinearCycleSchedule(LearningRateSchedule):
     self.lr *= 1 + (self.phase*self.rate)
 
 class Adam:
-  def __init__(self):
+  def __init__(self, weights, beta_1=0.9, beta_2=0.999, epsilon=10e-8):
     """
+    Handles weight updates using ADAM optimization.
+    
+    Args:
+      weights (array): Weights this optimizer will optimize and learn parameters for.
+      beta_1 (float): Momentum decay rate (Defaults to 0.9)
+      beta_2 (float): Velocity decay rate (Defaults to 0.999)
+      epsilon (float): Small value to prevent division by 0 (Defaults to 1e-8)
+    
     https://www.geeksforgeeks.org/adam-optimizer/
     https://arxiv.org/abs/1412.6980
     
-    - Needs its own weights (m & v)
-    - Needs to update weights at each iteration
-    - Needs to apply weights at each iteration
-    - Needs to take an LR object
-    
     M and V:
     mt = B1 * mt-1 + (1-B1) * gradient
-    vt = B2 * vt-1 + (1-B1) * gradient**2\
+    vt = B2 * vt-1 + (1-B2) * gradient**2
       
-    Bias correction
-    mt_hat = mt / (1 - B1)
-    vt_hat = vt / (1 - B2)
+    Bias correction:
+    mt_hat = mt / (1 - B1^t)
+    vt_hat = vt / (1 - B2^t)
     
     Weight update:
-    wt = wt-1 - mt * (alpha / (sqrt(vt) + E))
+    wt = wt-1 - mt_hat * (alpha / (sqrt(vt_hat) + E))
     
-    gradient-> Gradient of weights wrt. loss
-    epsilon -> Small value to avoid division by 0 (1e-8)
-    B1 & B2 -> Decay rates of m, v respectively (B1 = 0.9, B2 = 0.999)
-    alpha   -> Learning rate
-    
-    Example:
-    $ optimiser.apply_gradients(weights, gradients, lr)
-    
-    > apply_gradients(...):
-    >   update(gradients) # use gradients to update m, v
-    >   return 
-    
+    gradient -> Gradient of weights wrt. loss
+    epsilon  -> Small value to avoid division by 0 (1e-8)
+    B1 & B2  -> Decay rates of m, v respectively (B1 = 0.9, B2 = 0.999)
+    alpha    -> Learning rate
     """
     raise NotImplementedError
 
