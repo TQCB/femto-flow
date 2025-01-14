@@ -13,6 +13,9 @@ class Layer():
   def __init__(self):
     pass
 
+  def initialize_optimizer(self, optimizer):
+    pass
+
   def get_param_count(self, weights):
     return np.sum([weight.size for weight in weights])
 
@@ -23,6 +26,10 @@ class MetaLayer(Layer):
     self.clip = clip
 
     self.param_count = np.sum([layer.param_count for layer in self.layers])
+
+  def initialize_optimizer(self, optimizer):
+    for layer in self.layers:
+      layer.initialize_optimizer(optimizer)
 
   def forward(self, input):
     output = input
@@ -40,7 +47,7 @@ class MetaLayer(Layer):
 
     return input_error
 
-class Activation():
+class Activation(Layer):
   def __init__(self, activation):
     self.activation = activation()
     self.param_count = 0
@@ -64,6 +71,10 @@ class Dense1D(Layer):
     self.bias = np.zeros((1,output_dim))
 
     self.param_count = self.get_param_count([self.weights, self.bias])
+
+  def initialize_optimizer(self, optimizer):
+    self.opt_weights = optimizer(self.weights)
+    self.opt_bias = optimizer(self.bias)
 
   def forward(self, input):
     self.input = input # shape: (batch, feature)
@@ -94,6 +105,10 @@ class Dense2D(Layer):
 
     self.param_count = self.get_param_count([self.weights, self.bias])
 
+  def initialize_optimizer(self, optimizer):
+    self.opt_weights = optimizer(self.weights)
+    self.opt_bias = optimizer(self.bias)
+
   def forward(self, input):
     self.input = input # shape: (batch, seq_len, feature)
     self.output = np.dot(self.input, self.weights) + self.bias # shape: (batch, neuron)
@@ -102,13 +117,15 @@ class Dense2D(Layer):
   def backward(self, output_error, learning_rate):
     input_error = np.dot(output_error, self.weights.T)
     weights_error = np.matmul(self.input.transpose(0, 2, 1), output_error)
+    weights_error = np.mean(weights_error, axis=0)
         
     # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
     bias_error = np.mean(output_error, axis=0) # shape: 3, 8
     bias_error = np.sum(bias_error, axis=0, keepdims=True) # shape: 1, 8
-      
-    self.weights -= learning_rate * np.mean(weights_error, axis=0)
-    self.bias -= learning_rate * bias_error
+
+    self.weights = self.opt_weights.apply_gradients(self.weights, weights_error, learning_rate)
+    self.bias = self.opt_bias.apply_gradients(self.bias, bias_error, learning_rate)
+
     return input_error
     
 class MultiHeadSelfAttention(Layer):
@@ -142,6 +159,12 @@ class MultiHeadSelfAttention(Layer):
 
     self.param_count = self.get_param_count([self.wq, self.wk, self.wv, self.wo])
     
+  def initialize_optimizer(self, optimizer):
+    self.opt_wq = optimizer(self.wq)
+    self.opt_wk = optimizer(self.wk)
+    self.opt_wv = optimizer(self.wv)
+    self.opt_wo = optimizer(self.wo)
+
   def split_heads(self, x):
     """
     Utility function to split global Q, K, V
@@ -288,10 +311,15 @@ class MultiHeadSelfAttention(Layer):
       d_input += output_error
 
     # Update weights
-    self.wq -= learning_rate * d_wq.mean(axis=0)
-    self.wk -= learning_rate * d_wk.mean(axis=0)
-    self.wv -= learning_rate * d_wv.mean(axis=0)
-    self.wo -= learning_rate * d_wo.mean(axis=0)
+    # self.wq -= learning_rate * d_wq.mean(axis=0)
+    # self.wk -= learning_rate * d_wk.mean(axis=0)
+    # self.wv -= learning_rate * d_wv.mean(axis=0)
+    # self.wo -= learning_rate * d_wo.mean(axis=0)
+
+    self.wq = self.opt_wq.apply_gradients(self.wq, d_wq.mean(axis=0), learning_rate)
+    self.wk = self.opt_wk.apply_gradients(self.wk, d_wk.mean(axis=0), learning_rate)
+    self.wv = self.opt_wv.apply_gradients(self.wv, d_wv.mean(axis=0), learning_rate)
+    self.wo = self.opt_wo.apply_gradients(self.wo, d_wo.mean(axis=0), learning_rate)
 
     return d_input
     
@@ -306,6 +334,9 @@ class Embedding(Layer):
     self.output_dim = output_dim
 
     self.param_count = self.get_param_count([self.global_embedding_weights])
+
+  def initialize_optimizer(self, optimizer):
+    self.opt_weights = optimizer(self.global_embedding_weights)
 
   def forward(self, input):
     # Input is a sequence of ints representing tokens
@@ -342,6 +373,9 @@ class PositionalEmbedding(Layer):
     self.positional_encoding = self.get_positional_encoding(self.output_dim)
 
     self.param_count = self.get_param_count([self.global_embedding_weights])
+
+  def initialize_optimizer(self, optimizer):
+    self.opt_weights = optimizer(self.global_embedding_weights)
 
   def get_positional_encoding(self, dim, n=10000):
     enc = np.empty([self.seq_len, dim])
@@ -390,6 +424,10 @@ class LayerNormalisation(Layer):
     self.eps = eps
 
     self.param_count = self.get_param_count([self.gamma, self.beta])
+
+  def initialize_optimizer(self, optimizer):
+    self.opt_gamma = optimizer(self.gamma)
+    self.opt_beta = optimizer(self.beta)
 
   def forward(self, input):
     self.input = input
