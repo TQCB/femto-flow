@@ -1,3 +1,5 @@
+import numpy as np
+
 class LearningRateSchedule:
   def __init__(self, initial_lr):
     self.lr = initial_lr
@@ -72,6 +74,9 @@ class Adam:
       beta_1 (float): Momentum decay rate (Defaults to 0.9)
       beta_2 (float): Velocity decay rate (Defaults to 0.999)
       epsilon (float): Small value to prevent division by 0 (Defaults to 1e-8)
+
+    Returns:
+      weights (array): Updated weights
     
     https://www.geeksforgeeks.org/adam-optimizer/
     https://arxiv.org/abs/1412.6980
@@ -85,19 +90,42 @@ class Adam:
     vt_hat = vt / (1 - B2^t)
     
     Weight update:
-    wt = wt-1 - mt_hat * (alpha / (sqrt(vt_hat) + E))
+    wt = wt-1 - alpha * (mt_hat / (sqrt(vt_hat) + E))
     
     gradient -> Gradient of weights wrt. loss
     epsilon  -> Small value to avoid division by 0 (1e-8)
     B1 & B2  -> Decay rates of m, v respectively (B1 = 0.9, B2 = 0.999)
     alpha    -> Learning rate
     """
-    raise NotImplementedError
+    self.t = 0
+    self.beta_1 = beta_1
+    self.beta_2 = beta_2
+    self.epsilon = epsilon
 
-  def update(self, ):
+    # Initialize momentum and velocity m, v based on input
+    weights_shape = weights.shape
+    self.m = np.zeros(shape=weights_shape)
+    self.v = np.zeros(shape=weights_shape)
+
+  def update_parameters(self, gradient):
     """Update m, v based on mt-1, vt-1 and gradients"""
-    raise NotImplementedError
+    # Increment time step
+    self.t += 1
+
+    # Update m, v
+    self.m = self.beta_1 * self.m + (1 - self.beta_1) * gradient
+    self.v = self.beta_2 * self.v + (1 - self.beta_2) * gradient**2
+
+    # Correct initialization bias of m, v
+    self.m = self.m / (1 - self.beta_1**self.t)
+    self.v = self.v / (1 - self.beta_2**self.t)
   
-  def apply_gradients(self):
+  def update_weights(self, weights, learning_rate):
     """Update w based on m, v and learning rate"""
-    raise NotImplementedError
+    weights -= learning_rate * (self.m / (np.sqrt(self.v) + self.epsilon))
+    return weights
+  
+  def apply_gradients(self, weights, gradient, learning_rate):
+    """Update parameters and weights, returning updated weights"""
+    self.update_parameters(gradient) # update m, v from gradient
+    return self.update_weights(weights, learning_rate)
