@@ -13,13 +13,16 @@ class Network:
     def add(self, layer):
         self.layers.append(layer)
     
-    def build(self, loss, d_loss, metric, learning_rate_schedule):
+    def build(self, loss, d_loss, metric, optimizer, learning_rate_schedule):
         self.loss = loss
         self.d_loss = d_loss
         self.metric = metric
         self.learning_rate_schedule = learning_rate_schedule
 
         self.param_count = np.sum([layer.param_count for layer in self.layers])
+
+        for layer in self.layers:
+            layer.initialize_optimizer(optimizer)
 
     def predict(self, input_data, batched_output=True):
         # Number of batches
@@ -47,7 +50,7 @@ class Network:
 
         if (self.loss == None) | (self.d_loss == None):
             raise AttributeError('Attributes loss or d_loss have not been set using the build() method.')
-        
+
         # Amount of batches
         train_batches = x_train.shape[0]
         if train_steps is None:
