@@ -9,11 +9,20 @@ import numpy as np
 
 ################################################################################
 
-class MetaLayer():
+class Layer():
+  def __init__(self):
+    pass
+
+  def get_param_count(self, weights):
+    return np.sum([weight.size for weight in weights])
+
+class MetaLayer(Layer):
   def __init__(self, layers, clip=0):
     '''Layer that takes multiple layers and forward/backward passes through all of them sequentially'''
     self.layers = layers
     self.clip = clip
+
+    self.param_count = np.sum([layer.param_count for layer in self.layers])
 
   def forward(self, input):
     output = input
@@ -34,6 +43,7 @@ class MetaLayer():
 class Activation():
   def __init__(self, activation):
     self.activation = activation()
+    self.param_count = 0
 
   # compute h(X) = Y
   def forward(self, input):
@@ -45,7 +55,7 @@ class Activation():
   def backward(self, output_error, learning_rate):
     return self.activation.backward(self.input) * output_error
     
-class Dense1D():
+class Dense1D(Layer):
   def __init__(self, input_dim, output_dim):
     # Xavier/Glorot uniform initialization
     limit = np.sqrt(6 / (input_dim + output_dim))
@@ -53,8 +63,7 @@ class Dense1D():
     self.weights = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
     self.bias = np.zeros((1,output_dim))
 
-    # self.weights = np.random.rand(input_dim, output_dim) - 0.5
-    # self.bias = np.random.rand(1, output_dim) - 0.5
+    self.param_count = self.get_param_count([self.weights, self.bias])
 
   def forward(self, input):
     self.input = input # shape: (batch, feature)
@@ -76,15 +85,14 @@ class Dense1D():
     self.bias -= learning_rate * bias_error
     return input_error
   
-class Dense2D():
+class Dense2D(Layer):
   def __init__(self, input_dim, output_dim):
     # Xavier/Glorot uniform initialization
     limit = np.sqrt(6 / (input_dim + output_dim))
     self.weights = np.random.uniform(-limit, limit, size=(input_dim, output_dim))
     self.bias = np.zeros((1, output_dim))
 
-    # self.weights = np.random.rand(input_dim, output_dim) - 0.5
-    # self.bias = np.random.rand(1, output_dim) - 0.5
+    self.param_count = self.get_param_count([self.weights, self.bias])
 
   def forward(self, input):
     self.input = input # shape: (batch, seq_len, feature)
@@ -103,7 +111,7 @@ class Dense2D():
     self.bias -= learning_rate * bias_error
     return input_error
     
-class MultiHeadSelfAttention():
+class MultiHeadSelfAttention(Layer):
   """
   Multi Head Self Attention for Dense networks.
     
@@ -128,13 +136,11 @@ class MultiHeadSelfAttention():
     self.wq = np.random.uniform(-limit, limit, size=(input_dim, n_dim))
     self.wk = np.random.uniform(-limit, limit, size=(input_dim, n_dim))
     self.wv = np.random.uniform(-limit, limit, size=(input_dim, n_dim))
-
-    # self.wq = np.random.rand(input_dim, self.n_dim) - 0.5
-    # self.wk = np.random.rand(input_dim, self.n_dim) - 0.5
-    # self.wv = np.random.rand(input_dim, self.n_dim) - 0.5
     
     # Output projection weights
     self.wo = np.random.rand(self.n_dim, self.n_dim) - 0.5
+
+    self.param_count = self.get_param_count([self.wq, self.wk, self.wv, self.wo])
     
   def split_heads(self, x):
     """
@@ -289,16 +295,17 @@ class MultiHeadSelfAttention():
 
     return d_input
     
-class Embedding():
+class Embedding(Layer):
   def __init__(self, input_dim, output_dim, vocab_size):
     # Xavier/Glorot uniform initialization
     limit = np.sqrt(6 / (vocab_size + output_dim))
 
     # vocab_size rows, output_dim embedding dimensions
     self.global_embedding_weights = np.random.uniform(-limit, limit, size=(vocab_size, output_dim))
-    # self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
     self.vocab_size = vocab_size
     self.output_dim = output_dim
+
+    self.param_count = self.get_param_count([self.global_embedding_weights])
 
   def forward(self, input):
     # Input is a sequence of ints representing tokens
@@ -324,7 +331,7 @@ class Embedding():
     # (The input was just a sequence of integer indices)
     return None
   
-class PositionalEmbedding():
+class PositionalEmbedding(Layer):
   def __init__(self, seq_len, output_dim, vocab_size):
     # vocab_size rows, output_dim embedding dimensions
     self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
@@ -333,6 +340,8 @@ class PositionalEmbedding():
     self.output_dim = output_dim
 
     self.positional_encoding = self.get_positional_encoding(self.output_dim)
+
+    self.param_count = self.get_param_count([self.global_embedding_weights])
 
   def get_positional_encoding(self, dim, n=10000):
     enc = np.empty([self.seq_len, dim])
@@ -371,7 +380,7 @@ class PositionalEmbedding():
     # (The input was just a sequence of integer indices)
     return None
 
-class LayerNormalisation():
+class LayerNormalisation(Layer):
   def __init__(self, dim, axis=-1, eps=1e-4):
     self.dim = dim
     self.axis = axis
@@ -379,6 +388,8 @@ class LayerNormalisation():
     self.gamma = np.ones(dim)
     self.beta = np.zeros(dim)
     self.eps = eps
+
+    self.param_count = self.get_param_count([self.gamma, self.beta])
 
   def forward(self, input):
     self.input = input

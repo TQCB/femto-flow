@@ -8,6 +8,8 @@ class Network:
         self.loss = None
         self.d_loss = None
 
+        self.param_count = 0
+
     def add(self, layer):
         self.layers.append(layer)
     
@@ -16,6 +18,8 @@ class Network:
         self.d_loss = d_loss
         self.metric = metric
         self.learning_rate_schedule = learning_rate_schedule
+
+        self.param_count = np.sum([layer.param_count for layer in self.layers])
 
     def predict(self, input_data, batched_output=True):
         # Number of batches
