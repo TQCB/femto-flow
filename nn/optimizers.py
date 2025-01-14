@@ -128,8 +128,7 @@ class AdamOptimizer():
     self.m = self.beta_1 * self.m + (1 - self.beta_1) * gradient
     self.v = self.beta_2 * self.v + (1 - self.beta_2) * (gradient ** 2)
 
-    # Correct initialization bias of m, v
-    # print(f"DEBUG: {self.beta_2**self.t}")
+    # Correct 0 initialization bias of m, v
     self.m = self.m / (1 - self.beta_1**self.t + self.epsilon)
     self.v = self.v / (1 - self.beta_2**self.t + self.epsilon)
   
