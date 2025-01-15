@@ -119,18 +119,36 @@ class AdamOptimizer():
     self.m = np.zeros(shape=weights.shape)
     self.v = np.zeros(shape=weights.shape)
 
+    self.debug_m = []
+    self.debug_v = []
+
   def update_parameters(self, gradient):
     """Update m, v based on mt-1, vt-1 and gradients"""
     # Increment time step
     self.t += 1
+    print(self.t)
+    print(f"g min max: {np.min(gradient), np.max(gradient)}")
 
     # Update m, v
     self.m = self.beta_1 * self.m + (1 - self.beta_1) * gradient
     self.v = self.beta_2 * self.v + (1 - self.beta_2) * (gradient ** 2)
 
     # Correct 0 initialization bias of m, v
-    self.m = self.m / (1 - self.beta_1**self.t + self.epsilon)
+    # DEBUG Problem is in the bias correction!!!!!!
+    self.m = self.m / (1 - (self.beta_1 ** self.t) + self.epsilon)
+    print(f"DEBUG BIAS CORRECTION TERM BETA2: {(1 - (self.beta_2**self.t) + self.epsilon)}")
+    print(f"PRE CORRECTION: {np.min(self.v), np.max(self.v)}")
     self.v = self.v / (1 - self.beta_2**self.t + self.epsilon)
+    print(f"POST CORRECTION: {np.min(self.v), np.max(self.v)}")
+
+    self.debug_m.append(np.min(self.m))
+    self.debug_m.append(np.max(self.m))
+    self.debug_v.append(np.min(self.v))
+    self.debug_v.append(np.max(self.v))
+
+
+    print(f"m min max: {np.min(self.debug_m), np.max(self.debug_m)}")
+    print(f"v min max: {np.min(self.debug_v), np.max(self.debug_v)}")
   
   def update_weights(self, weights, learning_rate):
     """Update w based on m, v and learning rate"""
