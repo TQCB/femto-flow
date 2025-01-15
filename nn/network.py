@@ -94,8 +94,6 @@ class Network:
                 self.error += self.loss(y_train[batch], output)
                 d_error = self.d_loss(y_train[batch], output)
                 
-                debug_error_list = []
-
                 # Backpropagate gradient
                 for layer in self.layers[::-1]:
                     d_error = layer.backward(d_error, learning_rate)
