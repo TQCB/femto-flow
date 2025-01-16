@@ -65,7 +65,7 @@ class LinearCycleSchedule(LearningRateSchedule):
     self.lr *= 1 + (self.phase*self.rate)
 
 class DirectOptimizer():
-  def __init__(self, weights):
+  def __init__(self, weights=[]):
     pass
 
   def update_parameters(self, gradient):
