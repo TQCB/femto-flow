@@ -44,7 +44,7 @@ class Network:
         else:
             return result.reshape((-1, result.shape[2]))
     
-    def fit(self, x_train, y_train, epochs, train_steps=None, val_steps=None, validation=True, x_val=None, y_val=None, callbacks=[], batch_print_steps=None, clip=0):
+    def fit(self, x_train, y_train, epochs, train_steps=None, val_steps=None, validation=True, x_val=None, y_val=None, callbacks=[], batch_print_steps=None, clip=10):
         if validation & ((x_val is None) | (y_val is None)):
             raise ValueError('Validation data must be provided if you want to validate during fit')
 
@@ -99,7 +99,7 @@ class Network:
                     d_error = layer.backward(d_error, learning_rate)
                     
                     # Clip if needed
-                    if (d_error is not None) & clip != 0:
+                    if (d_error is not None) & (clip != 0):
                         d_error = np.clip(d_error, -clip, clip)
 
             self.error /= train_steps
