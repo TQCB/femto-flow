@@ -448,9 +448,6 @@ class LayerNormalisation(Layer):
     output_error *= self.gamma
 
     # Gradient w.r.t. variance
-    self.var = np.clip(self.var, -1, 1) # lots of overflows, clipping helps (DEBUG)
-    self.mu = np.clip(self.mu, -1, 1) # lots of overflows, clipping helps (DEBUG)
-
     var_error = output_error * (self.input - self.mu) * (-0.5) * (self.var + self.eps) ** (-1.5)
     var_error = np.sum(var_error, axis=self.axis, keepdims=True)
 
@@ -474,3 +471,14 @@ class LayerNormalisation(Layer):
     self.beta = np.clip(self.beta, -clip_limit, clip_limit)
 
     return input_error
+  
+  class Dropout(Layer):
+    def __init__(self, dropout_rate):
+      self.dropout_rate = dropout_rate
+      
+    def forward(self, input):
+      # Randomly generate a list of indices to drop
+      # len(drop_idx) = dropout_rate * input.size
+      self.drop_idx = int(dropout_rate * input.size)
+      
+    def backward(self, output_error, learning_rate):
