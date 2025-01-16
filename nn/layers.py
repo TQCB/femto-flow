@@ -16,7 +16,7 @@ class Layer():
   def initialize_optimizer(self, optimizer):
     pass
 
-  def get_param_count(self, weights):
+  def get_param_count(self, weights=[]):
     return np.sum([weight.size for weight in weights])
 
 class MetaLayer(Layer):
@@ -472,14 +472,38 @@ class LayerNormalisation(Layer):
 
     return input_error
   
-  class Dropout(Layer):
-    def __init__(self, dropout_rate):
-      self.dropout_rate = dropout_rate
+class Dropout(Layer):
+  def __init__(self, dropout_rate):
+    self.keep_prob = 1 - dropout_rate
+    self.param_count = self.get_param_count()
+    
+  def forward(self, input):
+    raise NotImplementedError
+    
+  def backward(self, output_error, learning_rate):
+    raise NotImplementedError
+  
+class InvertedDropout(Layer):
+  def __init__(self, dropout_rate, training=True):
+    self.keep_prob = 1 - dropout_rate
+    self.training = training
+    
+    self.param_count = self.get_param_count()
+    
+  def forward(self, input):
+    if self.training:
+      self.mask = np.random.rand(*input.shape) < self.keep_prob
+      # drop 0s
+      output = input * self.mask
+      # scale by keep_prob so output norm is unchanged
+      output /= self.keep_prob
+    
+    # during inference we can return the unmasked and unscaled entry
+    else:
+      output = input
       
-    def forward(self, input):
-      # Randomly generate a list of indices to drop
-      # len(drop_idx) = dropout_rate * input.size
-      self.drop_idx = int(dropout_rate * input.size)
-      
-    def backward(self, output_error, learning_rate):
-      raise NotImplementedError
+    return output
+  
+  def backward(self, output_error, learning_rate):
+    input_error = output_error * self.mask
+    return input_error
