@@ -482,3 +482,4 @@ class LayerNormalisation(Layer):
       self.drop_idx = int(dropout_rate * input.size)
       
     def backward(self, output_error, learning_rate):
+      raise NotImplementedError
