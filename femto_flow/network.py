@@ -77,7 +77,7 @@ class Network:
 
                 if batch_print_steps is not None:
                     if i % batch_print_steps == 0:
-                        print(f"Batch {i}/{train_steps} Loss:{self.error/(i+1):.3f} Metric:{metric/(i+1):.3f}", end="")
+                        print(f"Batch {i}/{train_steps} Loss: {self.error/(i+1):.3f} Metric: {metric/(i+1):.3f}", end="")
                         print("\r", end="")
 
                 learning_rate = self.learning_rate_schedule()
@@ -110,12 +110,12 @@ class Network:
                                  'loss':self.error,
                                  'metric':metric,})
             
-            print(f"Epoch {epoch}/{epochs} Loss:{self.error:.3f} Metric:{metric:.3f}", end='')
+            print(f"Epoch {epoch}/{epochs} Loss: {self.error:.3f} Metric: {metric:.3f}", end='')
 
             # If we use validation, we add val info the print and to the history
             if validation:
-                val_error = 0
-                val_metric = 0
+                self.val_error = 0
+                self.val_metric = 0
 
                 # Select val_steps random batches from val data
                 sample_idx = np.random.randint(val_batches, size=val_steps)
@@ -124,14 +124,14 @@ class Network:
 
                 val_pred = self.predict(sample_x_val)
                 for batch in range(val_steps):
-                    val_error += self.loss(sample_y_val[batch], val_pred[batch])
-                    val_metric += self.metric(sample_y_val[batch], val_pred[batch])
+                    self.val_error += self.loss(sample_y_val[batch], val_pred[batch])
+                    self.val_metric += self.metric(sample_y_val[batch], val_pred[batch])
 
-                val_error /= val_steps
-                val_metric /= val_steps
+                self.val_error /= val_steps
+                self.val_metric /= val_steps
 
-                print(f" Val. Loss: {val_error:.3f} Val. Metric: {val_metric:.3f}", end='')
-                self.history[len(self.history)-1] = {**self.history[len(self.history)-1], **{'val_loss' : val_error, 'val_metric': val_metric}}
+                print(f" Val. Loss: {self.val_error:.3f} Val. Metric: {self.val_metric:.3f}", end='')
+                self.history[len(self.history)-1] = {**self.history[len(self.history)-1], **{'val_loss' : self.val_error, 'self.val_metric': self.val_metric}}
 
             print()
 
