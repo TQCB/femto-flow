@@ -1,3 +1,4 @@
+# import numpy as np
 import numpy as np
 
 ################################################################################
@@ -363,12 +364,13 @@ class Embedding(Layer):
     return None
   
 class PositionalEmbedding(Layer):
-  def __init__(self, seq_len, output_dim, vocab_size):
+  def __init__(self, seq_len, output_dim, vocab_size, n=10000):
     # vocab_size rows, output_dim embedding dimensions
     self.global_embedding_weights = np.random.rand(vocab_size, output_dim)
     self.vocab_size = vocab_size
     self.seq_len = seq_len
     self.output_dim = output_dim
+    self.n = n
 
     self.positional_encoding = self.get_positional_encoding(self.output_dim)
 
@@ -377,14 +379,14 @@ class PositionalEmbedding(Layer):
   def initialize_optimizer(self, optimizer):
     self.opt_weights = optimizer(self.global_embedding_weights)
 
-  def get_positional_encoding(self, dim, n=10000):
+  def get_positional_encoding(self, dim):
     enc = np.empty([self.seq_len, dim])
 
     # Use positional encoding from "Attention is all you Need"
     for pos in range(self.seq_len):
       for i in range(int(dim/2)):
-        enc[pos, 2*i] = np.sin(pos / (n ** (2*1/dim)))
-        enc[pos, 2*i+1] = np.cos(pos / (n ** (2*1/dim)))
+        enc[pos, 2*i] = np.sin(pos / (self.n ** (2*1/dim)))
+        enc[pos, 2*i+1] = np.cos(pos / (self.n ** (2*1/dim)))
 
     return enc
 
