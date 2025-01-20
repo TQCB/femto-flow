@@ -91,7 +91,6 @@ class AdamOptimizer():
     Returns:
       weights (array): Updated weights
     
-    https://www.geeksforgeeks.org/adam-optimizer/
     https://arxiv.org/abs/1412.6980
     
     M and V:
@@ -103,7 +102,7 @@ class AdamOptimizer():
     vt_hat = vt / (1 - B2^t)
     
     Weight update:
-    wt = wt-1 - alpha * (mt_hat / (sqrt(vt_hat) + E))
+    wt = wt-1 - alpha * (mt_hat / (sqrt(vt_hat) + eps))
     
     gradient -> Gradient of weights wrt. loss
     epsilon  -> Small value to avoid division by 0 (1e-8)
