@@ -91,9 +91,10 @@ class Dense1D(Layer):
     # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
     bias_error = np.sum(output_error, axis=0, keepdims=True) # shape: 
     bias_error /= batch_size
-        
-    self.weights -= learning_rate * weights_error
-    self.bias -= learning_rate * bias_error
+  
+    self.weights = self.opt_weights.apply_gradients(self.weights, weights_error, learning_rate)
+    self.bias = self.opt_bias.apply_gradients(self.bias, bias_error, learning_rate)
+
     return input_error
   
 class Dense2D(Layer):
@@ -230,7 +231,7 @@ class MultiHeadSelfAttention(Layer):
     
     # Get weighted sum of V by attention_weights
     # shape: (n_heads, seq_len, head_dims)
-    self.V = np.clip(self.V, -1, 1) # lots of overflows, clipping V helps enormously (DEBUG)
+    # self.V = np.clip(self.V, -1, 1) # lots of overflows, clipping V helps enormously (DEBUG)
     attention_output = np.matmul(self.attention_weights, self.V)
     
     # Combine head outputs
@@ -350,7 +351,10 @@ class Embedding(Layer):
         d_global_embedding_weights[word_index] += output_error[i]
     
     # Update global embedding weights using the accumulated gradients and learning rate
-    self.global_embedding_weights -= learning_rate * d_global_embedding_weights
+    # self.global_embedding_weights -= learning_rate * d_global_embedding_weights
+    self.global_embedding_weights = self.opt_weights.apply_gradients(self.global_embedding_weights,
+                                                                     d_global_embedding_weights,
+                                                                     learning_rate)
 
     # In an embedding layer, there's no gradient to pass back to the previous layer
     # (The input was just a sequence of integer indices)
@@ -403,7 +407,10 @@ class PositionalEmbedding(Layer):
         d_global_embedding_weights[word_index] += output_error[i]
     
     # Update global embedding weights using the accumulated gradients and learning rate
-    self.global_embedding_weights -= learning_rate * d_global_embedding_weights
+    # self.global_embedding_weights -= learning_rate * d_global_embedding_weights
+    self.global_embedding_weights = self.opt_weights.apply_gradients(self.global_embedding_weights,
+                                                                     d_global_embedding_weights,
+                                                                     learning_rate)
 
     # In an embedding layer, there's no gradient to pass back to the previous layer
     # (The input was just a sequence of integer indices)
@@ -457,13 +464,13 @@ class LayerNormalisation(Layer):
                   (mu_error / self.dim)
     
     # Update parameters
-    self.gamma -= learning_rate * self.gamma_error
-    self.beta -= learning_rate * self.beta_error
-    
+    self.gamma = self.opt_gamma.apply_gradients(self.gamma, self.gamma_error, learning_rate)
+    self.beta = self.opt_beta.apply_gradients(self.beta, self.beta_error, learning_rate)
+
     # Clipping these helps a lot with stability
-    clip_limit = 1e3
-    self.gamma = np.clip(self.gamma, -clip_limit, clip_limit)
-    self.beta = np.clip(self.beta, -clip_limit, clip_limit)
+    # clip_limit = 1e3
+    # self.gamma = np.clip(self.gamma, -clip_limit, clip_limit)
+    # self.beta = np.clip(self.beta, -clip_limit, clip_limit)
 
     return input_error
   
