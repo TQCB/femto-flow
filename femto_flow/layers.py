@@ -1,4 +1,3 @@
-# import numpy as np
 import numpy as np
 
 ################################################################################
@@ -279,7 +278,6 @@ class MultiHeadSelfAttention(Layer):
     output_error_heads = self.split_heads(combined_output_error)
 
     # Backprop through weighted sum
-    self.V = np.clip(self.V, -1, 1) # lots of overflows, clipping V helps enormously (DEBUG)
     d_attention_weights = np.matmul(output_error_heads, self.V.transpose(0, 1, 3, 2))
 
     d_V = np.matmul(self.attention_weights.transpose(0, 1, 3, 2), output_error_heads)
@@ -312,11 +310,6 @@ class MultiHeadSelfAttention(Layer):
       d_input += output_error
 
     # Update weights
-    # self.wq -= learning_rate * d_wq.mean(axis=0)
-    # self.wk -= learning_rate * d_wk.mean(axis=0)
-    # self.wv -= learning_rate * d_wv.mean(axis=0)
-    # self.wo -= learning_rate * d_wo.mean(axis=0)
-
     self.wq = self.opt_wq.apply_gradients(self.wq, d_wq.mean(axis=0), learning_rate)
     self.wk = self.opt_wk.apply_gradients(self.wk, d_wk.mean(axis=0), learning_rate)
     self.wv = self.opt_wv.apply_gradients(self.wv, d_wv.mean(axis=0), learning_rate)
