@@ -444,18 +444,22 @@ class LayerNormalisation(Layer):
     # Gradient w.r.t. output
     output_error *= self.gamma
 
+    # Intermediary vars
+    input_minus_mu = self.input - self.mu
+    sqrt_var = np.sqrt(self.var + self.eps)
+
     # Gradient w.r.t. variance
-    var_error = output_error * (self.input - self.mu) * (-0.5) * (self.var + self.eps) ** (-1.5)
+    var_error = output_error * input_minus_mu * (-0.5) * (self.var + self.eps) ** (-1.5)
     var_error = np.sum(var_error, axis=self.axis, keepdims=True)
 
     # Gradient w.r.t. mu
-    mu_error = output_error * (-1) / np.sqrt(self.var + self.eps)
+    mu_error = output_error * (-1) / sqrt_var
     mu_error = np.sum(mu_error, axis=self.axis, keepdims=True)
-    mu_error += var_error * np.mean(-2 * (self.input - self.mu), axis=self.axis, keepdims=True)
+    mu_error += var_error * np.mean(-2 * input_minus_mu, axis=self.axis, keepdims=True)
     
     # Gradient w.r.t. input
-    input_error = (output_error / np.sqrt(self.var + self.eps)) + \
-                  (var_error * 2 * (self.input - self.mu) / self.dim) + \
+    input_error = (output_error / sqrt_var) + \
+                  (var_error * 2 * input_minus_mu / self.dim) + \
                   (mu_error / self.dim)
     
     # Update parameters
