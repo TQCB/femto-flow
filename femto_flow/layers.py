@@ -231,7 +231,6 @@ class MultiHeadSelfAttention(Layer):
     
     # Get weighted sum of V by attention_weights
     # shape: (n_heads, seq_len, head_dims)
-    # self.V = np.clip(self.V, -1, 1) # lots of overflows, clipping V helps enormously (DEBUG)
     attention_output = np.matmul(self.attention_weights, self.V)
     
     # Combine head outputs
@@ -466,11 +465,6 @@ class LayerNormalisation(Layer):
     # Update parameters
     self.gamma = self.opt_gamma.apply_gradients(self.gamma, self.gamma_error, learning_rate)
     self.beta = self.opt_beta.apply_gradients(self.beta, self.beta_error, learning_rate)
-
-    # Clipping these helps a lot with stability
-    # clip_limit = 1e3
-    # self.gamma = np.clip(self.gamma, -clip_limit, clip_limit)
-    # self.beta = np.clip(self.beta, -clip_limit, clip_limit)
 
     return input_error
   
