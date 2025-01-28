@@ -344,10 +344,8 @@ class Embedding(Layer):
     # Create an array to accumulate gradients for each word in the vocabulary
     d_global_embedding_weights = np.zeros_like(self.global_embedding_weights)
 
-    # Iterate through the input sequence and corresponding output error
-    for i, word_index in enumerate(self.input):
-        # Add the output error (gradient) for the current word to the accumulated gradients
-        d_global_embedding_weights[word_index] += output_error[i]
+    # Update values in global weights at input positions by adding output error
+    np.add.at(d_global_embedding_weights, self.input, output_error) 
     
     # Update global embedding weights using the accumulated gradients and learning rate
     # self.global_embedding_weights -= learning_rate * d_global_embedding_weights
@@ -400,12 +398,7 @@ class PositionalEmbedding(Layer):
     # Create an array to accumulate gradients for each word in the vocabulary
     d_global_embedding_weights = np.zeros_like(self.global_embedding_weights)
 
-    # Iterate through the input sequence and corresponding output error
-    """
-    for i, word_index in enumerate(self.input):
-        # Add the output error (gradient) for the current word to the accumulated gradients
-        d_global_embedding_weights[word_index] += output_error[i]
-    """
+    # Update values in global weights at input positions by adding output error
     np.add.at(d_global_embedding_weights, self.input, output_error) 
     
     # Update global embedding weights using the accumulated gradients and learning rate
