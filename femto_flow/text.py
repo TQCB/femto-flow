@@ -3,6 +3,13 @@ from collections import Counter
 
 PATTERN = r"""'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]+|[^ \s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
+def list_to_dict(string_list, start_value=0):
+  result_dict = {}
+  for element in string_list:
+    result_dict[element] = start_value
+    start_value += 1
+  return result_dict
+
 class TrieNode:
     def __init__(self):
         self.children = {}
@@ -131,9 +138,9 @@ class BytePairTokenizer:
 from collections import defaultdict
 
 class Vectorizer:
-  def __init__(self, vocab_size):
+  def __init__(self, vocab_size, vocabulary={}):
     self.vocab_size= vocab_size
-    self.vocabulary = {}
+    self.vocabulary = vocabulary
     self.inverse_vocabulary = defaultdict(int)
   
   def fit(self, tokenized_corpus):
