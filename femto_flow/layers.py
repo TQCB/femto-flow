@@ -116,16 +116,17 @@ class Dense2D(Layer):
     return self.output
     
   def backward(self, output_error, learning_rate):
+    batch_size = output_error.shape[0]
+
     input_error = np.dot(output_error, self.weights.T)
     weights_error = np.matmul(self.input.transpose(0, 2, 1), output_error)
-    weights_error = np.mean(weights_error, axis=0)
-        
-    # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
-    bias_error = np.mean(output_error, axis=0) # shape: 3, 8
-    bias_error = np.sum(bias_error, axis=0, keepdims=True) # shape: 1, 8
+    weights_error = np.sum(weights_error, axis=0)
 
-    self.weights = self.opt_weights.apply_gradients(self.weights, weights_error, learning_rate)
-    self.bias = self.opt_bias.apply_gradients(self.bias, bias_error, learning_rate)
+    # Calculate the gradient of the bias by summing over the batch dimension (axis=0)
+    bias_error = np.sum(output_error, axis=(0, 1)) # shape: 1, 8
+
+    self.weights = self.opt_weights.apply_gradients(self.weights, weights_error / batch_size, learning_rate)
+    self.bias = self.opt_bias.apply_gradients(self.bias, bias_error / batch_size, learning_rate)
 
     return input_error
     
