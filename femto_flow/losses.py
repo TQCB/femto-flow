@@ -1,6 +1,6 @@
 import numpy as np
 
-epsilon = 1e-15
+epsilon = 1e-8
 
 def mse(y_true, y_pred):
     return np.mean(np.power(y_true-y_pred, 2))
