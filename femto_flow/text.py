@@ -6,7 +6,7 @@ PATTERN = r"""'s|'t|'re|'ve|'m|'ll|'d|[\p{L}]+|[\p{N}]+|[^ \s\p{L}\p{N}]+|\s+(?!
 def list_to_dict(string_list, start_value=0):
   result_dict = {}
   for element in string_list:
-    result_dict[element] = start_value
+    result_dict[start_value] = element
     start_value += 1
   return result_dict
 
@@ -128,6 +128,7 @@ class BytePairTokenizer:
           i = end_pos
           last_append = i
         else:
+          output.append(document[i])
           i += 1
 
       output.append(document[last_append:])
@@ -139,7 +140,7 @@ from collections import defaultdict
 
 class Vectorizer:
   def __init__(self, vocab_size, vocabulary={}):
-    self.vocab_size= vocab_size
+    self.vocab_size = vocab_size - len(vocabulary)
     self.vocabulary = vocabulary
     self.inverse_vocabulary = defaultdict(int)
   
@@ -149,7 +150,7 @@ class Vectorizer:
     self.vocabulary[0] = '<UNK>'
     self.inverse_vocabulary['<UNK>'] = 0
 
-    integer = 1
+    integer = len(self.vocabulary)
     for token, _ in token_frequency:
       self.vocabulary[integer] = token
       self.inverse_vocabulary[token] = integer
