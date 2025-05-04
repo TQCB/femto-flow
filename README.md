@@ -1,6 +1,7 @@
 # FemtoFlow: Deep Learning from Scratch with NumPy
 
 [![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 
 FemtoFlow is a lightweight deep learning library built entirely from scratch using Python and NumPy. It aims to provide a clear and understandable implementation of core neural network components, suitable for educational purposes and experimentation.
 
